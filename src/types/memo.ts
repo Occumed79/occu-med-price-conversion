@@ -18,6 +18,7 @@ export interface BaseMemoData {
   directorName: string;
   dateOfMemo: string;
   dateOfPricingReceived: string;
+  billingTerms: string;
   sourceOfPricing: string;
   clinicRepName: string;
   methodOfComm: string;
@@ -31,6 +32,7 @@ export interface NetworkMemoData extends BaseMemoData {
   acquisitionType: string;
   clinicType: string;
   client: string;
+  priceRows: PriceRow[];
 }
 
 export interface ClinicMemoData extends BaseMemoData {

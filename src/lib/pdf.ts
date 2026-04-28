@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import logo from "@/assets/occu-med-logo.png";
 import type { ClinicMemoData, NetworkMemoData, SignedClinicMemoData } from "@/types/memo";
 
@@ -74,6 +75,13 @@ function fmtAddress(a: { street1: string; street2: string; city: string; state: 
     [a.city, a.state, a.zip].filter(Boolean).join(", "),
   ].filter(Boolean);
   return lines.join("\n");
+}
+
+function fmtDateLong(v: string) {
+  if (!v) return "—";
+  const d = new Date(`${v}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" }).toUpperCase();
 }
 
 interface FieldDef {
@@ -194,8 +202,9 @@ export async function generateNetworkPdf(d: NetworkMemoData): Promise<Uint8Array
   y = drawFieldsGrid(doc, [
     { label: "Network Management Analyst", value: d.analystName },
     { label: "Director of Network Management", value: d.directorName },
-    { label: "Date of Memo", value: d.dateOfMemo },
-    { label: "Date of Pricing Received", value: d.dateOfPricingReceived },
+    { label: "Pricing Established", value: fmtDateLong(d.dateOfMemo) },
+    { label: "Pricing Expires", value: fmtDateLong(d.dateOfPricingReceived) },
+    { label: "Billing Terms", value: d.billingTerms },
     { label: "Source of Pricing", value: d.sourceOfPricing },
     { label: "Clinic Representative", value: d.clinicRepName },
     { label: "Method of Communication", value: d.methodOfComm },
@@ -206,20 +215,25 @@ export async function generateNetworkPdf(d: NetworkMemoData): Promise<Uint8Array
     { label: "Client", value: d.client },
   ], y, pageW);
 
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(13, 31, 60);
+  doc.text("Pricing", 14, y + 4);
+  y = drawTable(doc, d.priceRows.filter((r) => r.component || r.price), y + 8, pageW);
   y = drawNotes(doc, "Clinic Address", fmtAddress(d.address), y + 4, pageW);
   y = drawNotes(doc, "Notes or Context Regarding the Pricing Received", d.notes, y + 2, pageW);
-
-  return doc.output("arraybuffer") as unknown as Uint8Array;
+  return new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);
 }
 
 export async function generateClinicPdf(d: ClinicMemoData): Promise<Uint8Array> {
-  const { doc, pageW } = await buildBasePdf("Clinic Pricing Memo", "navy");
+  const { doc, pageW } = await buildBasePdf("Network Management Provider Pricing Sheet", "navy");
   let y = 40;
   y = drawFieldsGrid(doc, [
     { label: "Network Management Analyst", value: d.analystName },
     { label: "Director of Network Management", value: d.directorName },
-    { label: "Date of Memo", value: d.dateOfMemo },
-    { label: "Date of Pricing Received", value: d.dateOfPricingReceived },
+    { label: "Pricing Established", value: fmtDateLong(d.dateOfMemo) },
+    { label: "Pricing Expires", value: fmtDateLong(d.dateOfPricingReceived) },
+    { label: "Billing Terms", value: d.billingTerms },
     { label: "Source of Pricing", value: d.sourceOfPricing },
     { label: "Clinic Representative", value: d.clinicRepName },
     { label: "Method of Communication", value: d.methodOfComm },
@@ -241,20 +255,21 @@ export async function generateClinicPdf(d: ClinicMemoData): Promise<Uint8Array> 
 
   y = drawNotes(doc, "Additional Notes or Context Regarding Pricing", d.notes, y + 4, pageW);
 
-  return doc.output("arraybuffer") as unknown as Uint8Array;
+  return new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);
 }
 
 export async function generateSignedClinicPdf(
   d: SignedClinicMemoData,
   envelopeId: string,
 ): Promise<Uint8Array> {
-  const { doc, pageW, pageH } = await buildBasePdf("Clinic Pricing Memo (Signed)", "navy");
+  const { doc, pageW, pageH } = await buildBasePdf("Network Management Provider Pricing Sheet", "navy");
   let y = 40;
   y = drawFieldsGrid(doc, [
     { label: "Network Management Analyst", value: d.analystName },
     { label: "Director of Network Management", value: d.directorName },
-    { label: "Date of Memo", value: d.dateOfMemo },
-    { label: "Date of Pricing Received", value: d.dateOfPricingReceived },
+    { label: "Pricing Established", value: fmtDateLong(d.dateOfMemo) },
+    { label: "Pricing Expires", value: fmtDateLong(d.dateOfPricingReceived) },
+    { label: "Billing Terms", value: d.billingTerms },
     { label: "New or Existing Provider", value: d.newOrExistingProvider },
     { label: "New or Updated Pricing", value: d.newOrUpdatedPricing },
     { label: "Provider Specialty / Practice", value: d.providerSpecialty },
@@ -348,7 +363,7 @@ export async function generateSignedClinicPdf(
   doc.setTextColor(120, 130, 145);
   doc.text(`Envelope ID: ${envelopeId}`, 14, pageH - 8);
 
-  return doc.output("arraybuffer") as unknown as Uint8Array;
+  return new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);
 }
 
 export async function generateCertificate(
@@ -411,7 +426,7 @@ export async function generateCertificate(
     { maxWidth: pageW - 28 },
   );
 
-  return doc.output("arraybuffer") as unknown as Uint8Array;
+  return new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);
 }
 
 export async function sha256(bytes: Uint8Array): Promise<string> {
@@ -424,9 +439,10 @@ export async function sha256(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
-export function downloadPdf(bytes: Uint8Array, filename: string) {
-  const buf = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(buf).set(bytes);
+export function downloadPdf(bytes: Uint8Array | ArrayBuffer, filename: string) {
+  const src = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const buf = new ArrayBuffer(src.byteLength);
+  new Uint8Array(buf).set(src);
   const blob = new Blob([buf], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -436,4 +452,50 @@ export function downloadPdf(bytes: Uint8Array, filename: string) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function appendAttachmentPages(
+  basePdfBytes: Uint8Array,
+  pages: { title: string; fields: Array<{ label: string; value: string }> }[],
+): Promise<Uint8Array> {
+  if (!pages.length) return basePdfBytes;
+  const pdfDoc = await PDFDocument.load(basePdfBytes);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  for (const pageData of pages) {
+    const page = pdfDoc.addPage([595, 842]); // A4 points
+    let y = 790;
+    page.drawText(pageData.title, { x: 40, y, size: 18, font: bold });
+    y -= 28;
+    for (const field of pageData.fields) {
+      page.drawText(field.label.toUpperCase(), { x: 40, y, size: 9, font: bold });
+      y -= 14;
+      page.drawText(field.value || "—", { x: 40, y, size: 11, font });
+      y -= 22;
+    }
+  }
+
+  return pdfDoc.save();
+}
+
+export async function generateContactSheetPdf(
+  title: string,
+  fields: Array<{ label: string; value: string }>,
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595, 842]);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  page.drawText(title, { x: 40, y: 790, size: 20, font: bold });
+  let y = 752;
+  for (const field of fields) {
+    page.drawText(field.label.toUpperCase(), { x: 40, y, size: 9, font: bold });
+    y -= 14;
+    page.drawText(field.value || "—", { x: 40, y, size: 11, font });
+    y -= 22;
+  }
+
+  return pdfDoc.save();
 }

@@ -7,11 +7,13 @@ import { ComponentSidebar } from "./ComponentSidebar";
 import { FACILITY_TYPES, PROVIDER_SPECIALTIES } from "@/data/examComponents";
 import {
   downloadPdf,
-  generateCertificate,
-  generateSignedClinicPdf,
-  sha256,
 } from "@/lib/pdf";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  apiCreateEnvelope,
+  apiFinalizeEnvelope,
+  apiLogView,
+  base64PdfToBytes,
+} from "@/lib/backend";
 import { useToast } from "@/hooks/use-toast";
 import type { PriceRow, SignedClinicMemoData } from "@/types/memo";
 
@@ -20,6 +22,7 @@ const initial: SignedClinicMemoData = {
   directorName: "",
   dateOfMemo: "",
   dateOfPricingReceived: "",
+  billingTerms: "",
   sourceOfPricing: "",
   clinicRepName: "",
   methodOfComm: "",
@@ -42,32 +45,27 @@ const initial: SignedClinicMemoData = {
 let _id = 0;
 const newId = () => `row-${Date.now()}-${++_id}`;
 
-function newEnvelopeId() {
-  const rand = crypto.getRandomValues(new Uint8Array(8));
-  const hex = Array.from(rand).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `OM-${Date.now().toString(36).toUpperCase()}-${hex.toUpperCase()}`;
-}
-
-async function fetchIp(): Promise<string> {
-  try {
-    const res = await fetch("https://api.ipify.org?format=json");
-    const j = await res.json();
-    return j.ip || "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-
 export const SignedClinicMemoForm = () => {
   const [data, setData] = useState<SignedClinicMemoData>(initial);
   const [busy, setBusy] = useState(false);
-  const createdAtRef = useRef<string>(new Date().toISOString());
+  const [envelopeId, setEnvelopeId] = useState<string>("");
   const viewedAtRef = useRef<string | undefined>(undefined);
+  const [recipientEmail, setRecipientEmail] = useState("");
   const { toast } = useToast();
 
-  // Capture "viewed" once on mount
+  // Create authoritative envelope + viewed log on mount.
   useEffect(() => {
-    viewedAtRef.current = new Date().toISOString();
+    (async () => {
+      try {
+        const created = await apiCreateEnvelope();
+        setEnvelopeId(created.envelopeId);
+
+        const viewed = await apiLogView(created.envelopeId);
+        viewedAtRef.current = viewed.viewedAt;
+      } catch (e) {
+        console.warn("Backend envelope bootstrap failed", e);
+      }
+    })();
   }, []);
 
   const set = <K extends keyof SignedClinicMemoData>(k: K, v: SignedClinicMemoData[K]) =>
@@ -98,80 +96,32 @@ export const SignedClinicMemoForm = () => {
 
     setBusy(true);
     try {
-      const envelopeId = newEnvelopeId();
-      const signedAt = new Date().toISOString();
-      const ip = await fetchIp();
-      const ua = navigator.userAgent;
+      let activeEnvelopeId = envelopeId;
+      if (!activeEnvelopeId) {
+        const created = await apiCreateEnvelope();
+        activeEnvelopeId = created.envelopeId;
+        setEnvelopeId(created.envelopeId);
+      }
 
       const finalData: SignedClinicMemoData = {
         ...data,
-        occuMedRepDate: data.occuMedRepDate || signedAt.slice(0, 10),
-        clinicRepDate: data.clinicRepDate || signedAt.slice(0, 10),
+        occuMedRepDate: data.occuMedRepDate || new Date().toISOString().slice(0, 10),
+        clinicRepDate: data.clinicRepDate || new Date().toISOString().slice(0, 10),
       };
-
-      const pdfBytes = await generateSignedClinicPdf(finalData, envelopeId);
-      const pdfHash = await sha256(pdfBytes);
-      const certBytes = await generateCertificate(envelopeId, pdfHash, {
-        createdAt: createdAtRef.current,
+      const finalized = await apiFinalizeEnvelope(activeEnvelopeId, {
+        data: finalData,
         viewedAt: viewedAtRef.current,
-        signedAt,
-        ipAddress: ip,
-        userAgent: ua,
-        occuMedRepName: finalData.occuMedRepName,
-        clinicRepFullName: finalData.clinicRepFullName,
-        agreedElectronic: finalData.agreedElectronic,
+        recipientEmail: recipientEmail || undefined,
       });
 
-      // Persist to Supabase (best effort — UI still works if these fail)
-      try {
-        const pdfPath = `${envelopeId}/document.pdf`;
-        const certPath = `${envelopeId}/certificate.pdf`;
-        const toBlob = (bytes: Uint8Array) => {
-          const buf = new ArrayBuffer(bytes.byteLength);
-          new Uint8Array(buf).set(bytes);
-          return new Blob([buf], { type: "application/pdf" });
-        };
-
-        await supabase.storage.from("envelopes").upload(pdfPath, toBlob(pdfBytes), {
-          contentType: "application/pdf",
-          upsert: true,
-        });
-        await supabase.storage.from("envelopes").upload(certPath, toBlob(certBytes), {
-          contentType: "application/pdf",
-          upsert: true,
-        });
-
-        await supabase.from("envelopes").insert({
-          envelope_id: envelopeId,
-          pdf_hash: pdfHash,
-          pdf_path: pdfPath,
-          certificate_path: certPath,
-          created_at: createdAtRef.current,
-          viewed_at: viewedAtRef.current,
-          signed_at: signedAt,
-          ip_address: ip,
-          user_agent: ua,
-          occu_med_rep_name: finalData.occuMedRepName,
-          occu_med_rep_title: finalData.occuMedRepTitle,
-          clinic_rep_name: finalData.clinicRepFullName,
-          clinic_rep_title: finalData.clinicRepTitle,
-          agreed_electronic: finalData.agreedElectronic,
-          payload: finalData as any,
-        });
-      } catch (err) {
-        console.warn("Supabase persistence failed (UI still completed)", err);
-        toast({
-          title: "Saved locally",
-          description: "Could not persist to Supabase yet — run the setup SQL in your dashboard.",
-        });
-      }
-
-      downloadPdf(pdfBytes, `${envelopeId}-signed.pdf`);
-      setTimeout(() => downloadPdf(certBytes, `${envelopeId}-certificate.pdf`), 400);
+      const pdfBytes = base64PdfToBytes(finalized.pdfBase64);
+      const certBytes = base64PdfToBytes(finalized.certificateBase64);
+      downloadPdf(pdfBytes, `${finalized.envelopeId}-signed.pdf`);
+      setTimeout(() => downloadPdf(certBytes, `${finalized.envelopeId}-certificate.pdf`), 400);
 
       toast({
         title: "Signed & sealed",
-        description: `Envelope ${envelopeId} created. Document + certificate downloaded.`,
+        description: `Envelope ${finalized.envelopeId} finalized. Hash ${finalized.pdfHash.slice(0, 16)}…`,
       });
     } catch (e) {
       toast({ title: "Signing failed", description: String(e), variant: "destructive" });
@@ -185,7 +135,7 @@ export const SignedClinicMemoForm = () => {
       <ComponentSidebar onAdd={(c) => addComponent(c.name)} />
 
       <div className="form-card flex-1" style={{ maxWidth: "none" }}>
-        <NavyHeader title="Clinic Pricing Memo (Signed)" />
+        <NavyHeader title="Network Management Provider Pricing Sheet" />
         <div className="form-body">
           <Row>
             <Field label="Network Management Analyst Name" required>
@@ -197,10 +147,10 @@ export const SignedClinicMemoForm = () => {
           </Row>
 
           <Row>
-            <Field label="Date of Memo" required hint="dd-MMM-yyyy">
+            <Field label="Pricing Established" required>
               <TextInput type="date" value={data.dateOfMemo} onChange={(e) => set("dateOfMemo", e.target.value)} />
             </Field>
-            <Field label="Date of Pricing Received" required hint="dd-MMM-yyyy">
+            <Field label="Pricing Expires" required>
               <TextInput type="date" value={data.dateOfPricingReceived} onChange={(e) => set("dateOfPricingReceived", e.target.value)} />
             </Field>
           </Row>
@@ -216,6 +166,15 @@ export const SignedClinicMemoForm = () => {
 
           <Field label="Method of Communication" required>
             <TextInput placeholder="e.g. Email, Phone, Fax" value={data.methodOfComm} onChange={(e) => set("methodOfComm", e.target.value)} />
+          </Field>
+
+          <Field label="Billing Terms" required>
+            <Select value={data.billingTerms} onChange={(e) => set("billingTerms", e.target.value)}>
+              <option value="" disabled></option>
+              <option>Net 30</option>
+              <option>Net 15</option>
+              <option>Payment at Time of Service</option>
+            </Select>
           </Field>
 
           <hr className="section-divider" />
@@ -261,6 +220,9 @@ export const SignedClinicMemoForm = () => {
           <Field label="Pricing">
             <PriceTable rows={data.priceRows} onChange={(rows) => set("priceRows", rows)} />
           </Field>
+          <div className="text-[11px] text-muted-foreground mt-2 mb-2">
+            Prices listed are inclusive of all fees and service charges.
+          </div>
 
           <Field label="Additional Notes or Context Regarding Pricing">
             <Textarea
@@ -297,6 +259,7 @@ export const SignedClinicMemoForm = () => {
                 <Select value={data.occuMedRepTitle} onChange={(e) => set("occuMedRepTitle", e.target.value)}>
                   <option>Network Management Analyst</option>
                   <option>Director of Network Management</option>
+                  <option>Controller</option>
                 </Select>
                 <TextInput placeholder="Full name" value={data.occuMedRepName} onChange={(e) => set("occuMedRepName", e.target.value)} />
                 <TextInput type="date" value={data.occuMedRepDate} onChange={(e) => set("occuMedRepDate", e.target.value)} />
@@ -337,16 +300,29 @@ export const SignedClinicMemoForm = () => {
               signatures and records for this transaction.
             </span>
           </label>
+
+          <Field label="Optional recipient email (server-side send)">
+            <TextInput
+              type="email"
+              placeholder="recipient@example.com"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+            />
+          </Field>
+
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 px-9 py-5 border-t border-border print-hide">
           <div className="text-xs text-muted-foreground">
             On signing: an Envelope ID is assigned, the PDF is hashed (SHA-256), your IP address &amp; user
-            agent are captured, and a Certificate of Completion is generated.
+            agent are captured, a Certificate of Completion is generated, and recipient email is used if provided.
           </div>
-          <button type="button" onClick={handleSign} disabled={busy} className="btn-base btn-navy disabled:opacity-60">
-            {busy ? "Sealing…" : "Sign & Seal Document"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => window.print()} className="btn btn-secondary">Print</button>
+            <button type="button" onClick={handleSign} disabled={busy} className="btn-base btn-navy disabled:opacity-60">
+              {busy ? "Sealing…" : "Sign & Seal Document"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

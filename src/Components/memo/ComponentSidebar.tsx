@@ -21,10 +21,10 @@ export const ComponentSidebar = ({ onAdd }: Props) => {
 
   return (
     <aside className="w-full md:w-72 bg-card rounded-xl shadow-[var(--shadow-card)] overflow-hidden flex flex-col max-h-[85vh] sticky top-4">
-      <div className="navy-header" style={{ padding: "14px 16px" }}>
+      <div className="navy-header justify-center" style={{ padding: "14px 16px" }}>
         <div className="navy-orb navy-orb-1" style={{ width: 60, height: 60 }} />
         <div className="navy-orb navy-orb-2" style={{ width: 50, height: 50 }} />
-        <div className="header-title" style={{ fontSize: 15 }}>Exam Components</div>
+        <div className="header-title text-center" style={{ fontSize: 18 }}>Exam Components</div>
       </div>
       <div className="p-3 border-b border-border">
         <div className="relative">
@@ -60,7 +60,7 @@ export const ComponentSidebar = ({ onAdd }: Props) => {
                         className="w-full text-left text-[12.5px] leading-snug px-2 py-1.5 rounded hover:bg-[hsl(var(--navy-orb-1)/0.10)] flex items-start gap-2 group"
                       >
                         <Plus className="h-3.5 w-3.5 mt-0.5 text-[hsl(var(--navy-orb-1))] shrink-0 opacity-60 group-hover:opacity-100" />
-                        <span className="text-foreground">{item.name}</span>
+                        <span className="text-foreground break-words whitespace-normal">{item.name}</span>
                       </button>
                     </li>
                   ))}

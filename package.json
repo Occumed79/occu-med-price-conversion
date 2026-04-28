@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:backend": "node --watch backend/server.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "start:backend": "node backend/server.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
