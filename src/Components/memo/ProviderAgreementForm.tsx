@@ -141,7 +141,7 @@ export const ProviderAgreementForm = ({ includeTermsBlock }: Props) => {
       <div className="form-card flex-1" style={{ maxWidth: "none" }}>
         <NavyHeader title="Provider Service Agreement" />
         <div className="form-body">
-          {includeTermsBlock && (
+            {includeTermsBlock && (
             <div className="rounded-lg border border-border bg-muted/30 p-4 mb-5 space-y-4">
               <div>
                 <h3 className="text-sm font-bold">Scheduling Process</h3>

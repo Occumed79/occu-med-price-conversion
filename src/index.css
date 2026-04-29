@@ -259,8 +259,9 @@ All colors MUST be HSL.
   .form-card > .aurora-header .header-title,
   .form-card > .navy-header .header-title {
     text-align: center;
-    max-width: min(92%, 700px);
+    max-width: min(100%, 860px);
     margin: 0 auto;
+    padding-left: 120px;
   }
 
   .header-title {
@@ -413,6 +414,8 @@ All colors MUST be HSL.
   @media (max-width: 600px) {
     .aurora-header, .navy-header { flex-direction: column; text-align: center; padding: 20px; }
     .header-title { font-size: 28px; }
+    .form-card > .aurora-header .header-title,
+    .form-card > .navy-header .header-title { padding-left: 0; }
     .form-body { padding: 20px; }
     .field-row, .address-row { grid-template-columns: 1fr; }
     .action-bar { padding: 16px 20px; }
