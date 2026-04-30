@@ -5,9 +5,10 @@ import { AddressBlock } from "./AddressBlock";
 import { PriceTable } from "./PriceTable";
 import { ComponentSidebar } from "./ComponentSidebar";
 import { FACILITY_TYPES, PROVIDER_SPECIALTIES } from "@/data/examComponents";
-import { downloadPdf, generateClinicPdf } from "@/lib/pdf";
+import { appendAttachmentPages, downloadPdf, generateClinicPdf } from "@/lib/pdf";
 import { useToast } from "@/hooks/use-toast";
 import type { ClinicMemoData, PriceRow } from "@/types/memo";
+import { occuMedContactSheetAttachment, providerContactSheetAttachment } from "@/lib/contactSheetAttachments";
 
 const initial: ClinicMemoData = {
   analystName: "",
@@ -33,6 +34,8 @@ const newId = () => `row-${Date.now()}-${++_id}`;
 export const ClinicMemoForm = () => {
   const [data, setData] = useState<ClinicMemoData>(initial);
   const [busy, setBusy] = useState(false);
+  const [includeOccuContactAttachment, setIncludeOccuContactAttachment] = useState(false);
+  const [includeProviderContactAttachment, setIncludeProviderContactAttachment] = useState(false);
   const { toast } = useToast();
 
   const set = <K extends keyof ClinicMemoData>(k: K, v: ClinicMemoData[K]) =>
@@ -47,7 +50,11 @@ export const ClinicMemoForm = () => {
     setBusy(true);
     try {
       const bytes = await generateClinicPdf(data);
-      downloadPdf(bytes, `clinic-memo-${data.dateOfMemo || Date.now()}.pdf`);
+      const attachmentPages = [];
+      if (includeOccuContactAttachment) attachmentPages.push(occuMedContactSheetAttachment());
+      if (includeProviderContactAttachment) attachmentPages.push(providerContactSheetAttachment());
+      const finalBytes = attachmentPages.length ? await appendAttachmentPages(bytes, attachmentPages) : bytes;
+      downloadPdf(finalBytes, `clinic-memo-${data.dateOfMemo || Date.now()}.pdf`);
       toast({ title: "PDF downloaded", description: "Clinic pricing memo saved." });
     } catch (e) {
       toast({ title: "Failed to generate PDF", description: String(e), variant: "destructive" });
@@ -157,6 +164,15 @@ export const ClinicMemoForm = () => {
               onChange={(e) => set("notes", e.target.value)}
             />
           </Field>
+          <hr className="section-divider" />
+          <label className="flex items-center gap-2 text-sm mt-1 mb-2">
+            <input type="checkbox" checked={includeOccuContactAttachment} onChange={(e) => setIncludeOccuContactAttachment(e.target.checked)} />
+            Include attachment: Occu-Med Contact Information
+          </label>
+          <label className="flex items-center gap-2 text-sm mt-1 mb-2">
+            <input type="checkbox" checked={includeProviderContactAttachment} onChange={(e) => setIncludeProviderContactAttachment(e.target.checked)} />
+            Include attachment: Provider Contact Information
+          </label>
 
         </div>
 

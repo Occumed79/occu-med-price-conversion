@@ -4,9 +4,10 @@ import { Search, Plus } from "lucide-react";
 
 interface Props {
   onAdd: (component: ExamComponent) => void;
+  headerTheme?: "navy" | "aurora";
 }
 
-export const ComponentSidebar = ({ onAdd }: Props) => {
+export const ComponentSidebar = ({ onAdd, headerTheme = "navy" }: Props) => {
   const [query, setQuery] = useState("");
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({});
 
@@ -21,9 +22,9 @@ export const ComponentSidebar = ({ onAdd }: Props) => {
 
   return (
     <aside className="w-full md:w-72 bg-card rounded-xl shadow-[var(--shadow-card)] overflow-hidden flex flex-col max-h-[85vh] sticky top-4">
-      <div className="navy-header justify-center" style={{ padding: "14px 16px" }}>
-        <div className="navy-orb navy-orb-1" style={{ width: 60, height: 60 }} />
-        <div className="navy-orb navy-orb-2" style={{ width: 50, height: 50 }} />
+      <div className={`${headerTheme === "aurora" ? "aurora-header" : "navy-header"} justify-center`} style={{ padding: "14px 16px", minHeight: "auto" }}>
+        {headerTheme === "navy" && <div className="navy-orb navy-orb-1" style={{ width: 60, height: 60 }} />}
+        {headerTheme === "navy" && <div className="navy-orb navy-orb-2" style={{ width: 50, height: 50 }} />}
         <div className="header-title text-center" style={{ fontSize: 18 }}>Exam Components</div>
       </div>
       <div className="p-3 border-b border-border">
