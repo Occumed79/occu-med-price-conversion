@@ -9,6 +9,7 @@ import { appendAttachmentPages, downloadPdf, generateClinicPdf } from "@/lib/pdf
 import { useToast } from "@/hooks/use-toast";
 import type { ClinicMemoData, PriceRow } from "@/types/memo";
 import { occuMedContactSheetAttachment, providerContactSheetAttachment } from "@/lib/contactSheetAttachments";
+import { apiSendMemoPdf } from "@/lib/backend";
 
 const initial: ClinicMemoData = {
   analystName: "",
@@ -30,10 +31,16 @@ const initial: ClinicMemoData = {
 
 let _id = 0;
 const newId = () => `row-${Date.now()}-${++_id}`;
+const bytesToBase64 = (bytes: Uint8Array) => {
+  let binary = "";
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary);
+};
 
 export const ClinicMemoForm = () => {
   const [data, setData] = useState<ClinicMemoData>(initial);
   const [busy, setBusy] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [includeOccuContactAttachment, setIncludeOccuContactAttachment] = useState(false);
   const [includeProviderContactAttachment, setIncludeProviderContactAttachment] = useState(false);
   const { toast } = useToast();
@@ -44,6 +51,33 @@ export const ClinicMemoForm = () => {
   const addComponent = (name: string) => {
     const row: PriceRow = { id: newId(), component: name, price: "" };
     set("priceRows", [...data.priceRows, row]);
+  };
+
+  const handleSend = async () => {
+    if (!recipientEmail.trim()) {
+      toast({ title: "Recipient email required", description: "Enter an email address before sending.", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const bytes = await generateClinicPdf(data);
+      const attachmentPages = [];
+      if (includeOccuContactAttachment) attachmentPages.push(occuMedContactSheetAttachment());
+      if (includeProviderContactAttachment) attachmentPages.push(providerContactSheetAttachment());
+      const finalBytes = attachmentPages.length ? await appendAttachmentPages(bytes, attachmentPages) : bytes;
+      await apiSendMemoPdf({
+        recipientEmail,
+        subject: `Provider Pricing Sheet${data.dateOfMemo ? ` - ${data.dateOfMemo}` : ""}`,
+        message: `Please see attached Provider Pricing Sheet.\n\nAnalyst: ${data.analystName || "N/A"}\nDate: ${data.dateOfMemo || "N/A"}`,
+        filename: `clinic-memo-${data.dateOfMemo || Date.now()}.pdf`,
+        pdfBase64: bytesToBase64(finalBytes),
+      });
+      toast({ title: "Email sent", description: "Memo sent through the server-side email integration." });
+    } catch (e) {
+      toast({ title: "Send failed", description: String(e), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -173,10 +207,16 @@ export const ClinicMemoForm = () => {
             <input type="checkbox" checked={includeProviderContactAttachment} onChange={(e) => setIncludeProviderContactAttachment(e.target.checked)} />
             Include attachment: Provider Contact Information
           </label>
+          <Field label="Send To (Recipient Email)">
+            <TextInput type="email" placeholder="recipient@example.com" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} />
+          </Field>
 
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-3 px-9 py-5 border-t border-border print-hide">
+          <button type="button" onClick={handleSend} disabled={busy} className="btn btn-secondary disabled:opacity-60">
+            {busy ? "Sending…" : "Send Memo"}
+          </button>
           <button type="button" onClick={handleDownload} disabled={busy} className="btn-base btn-navy disabled:opacity-60">
             {busy ? "Generating…" : "Download PDF"}
           </button>

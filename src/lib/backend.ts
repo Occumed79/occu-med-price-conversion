@@ -41,3 +41,19 @@ export function base64PdfToBytes(base64: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
+
+export async function apiSendMemoPdf(payload: {
+  recipientEmail: string;
+  subject: string;
+  message: string;
+  filename: string;
+  pdfBase64: string;
+}) {
+  const res = await fetch(url("/api/memos/send"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<{ ok: boolean }>;
+}

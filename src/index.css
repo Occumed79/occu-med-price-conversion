@@ -163,7 +163,7 @@ All colors MUST be HSL.
   .navy-header {
     position: relative;
     padding: 22px 36px;
-    min-height: 166px;
+    min-height: 146px;
     display: flex;
     align-items: center;
     justify-content: center;

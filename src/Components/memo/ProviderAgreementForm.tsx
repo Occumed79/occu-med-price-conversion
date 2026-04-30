@@ -9,6 +9,7 @@ import { appendAttachmentPages, downloadPdf, generateClinicPdf } from "@/lib/pdf
 import { useToast } from "@/hooks/use-toast";
 import type { ClinicMemoData, PriceRow } from "@/types/memo";
 import { occuMedContactSheetAttachment, providerContactSheetAttachment } from "@/lib/contactSheetAttachments";
+import { apiSendMemoPdf } from "@/lib/backend";
 
 interface Props {
   includeTermsBlock: boolean;
@@ -34,6 +35,11 @@ const initial: ClinicMemoData = {
 
 let _id = 0;
 const newId = () => `row-${Date.now()}-${++_id}`;
+const bytesToBase64 = (bytes: Uint8Array) => {
+  let binary = "";
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary);
+};
 
 export const ProviderAgreementForm = ({ includeTermsBlock }: Props) => {
   const [data, setData] = useState<ClinicMemoData>(initial);
@@ -78,12 +84,27 @@ export const ProviderAgreementForm = ({ includeTermsBlock }: Props) => {
       toast({ title: "Recipient email required", description: "Enter an email address before sending.", variant: "destructive" });
       return;
     }
-    await handleDownload();
-    const subject = encodeURIComponent(`Provider Service Agreement${data.dateOfMemo ? ` - ${data.dateOfMemo}` : ""}`);
-    const body = encodeURIComponent(
-      `Please see attached Provider Service Agreement.\n\nAnalyst: ${data.analystName || "N/A"}\nSigned by: ${signatureName || "N/A"}`,
-    );
-    window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
+    setBusy(true);
+    try {
+      const baseBytes = await generateClinicPdf(data);
+      const attachmentPages: { title: string; fields: Array<{ label: string; value: string }> }[] = [];
+      if (includeOccuContactAttachment) attachmentPages.push(occuMedContactSheetAttachment());
+      if (includeProviderContactAttachment) attachmentPages.push(providerContactSheetAttachment());
+      const finalBytes = await appendAttachmentPages(baseBytes, attachmentPages);
+      const subject = `Provider Service Agreement${data.dateOfMemo ? ` - ${data.dateOfMemo}` : ""}`;
+      await apiSendMemoPdf({
+        recipientEmail,
+        subject,
+        message: `Please see attached Provider Service Agreement.\n\nAnalyst: ${data.analystName || "N/A"}\nSigned by: ${signatureName || "N/A"}`,
+        filename: `provider-service-agreement-${data.dateOfMemo || Date.now()}.pdf`,
+        pdfBase64: bytesToBase64(finalBytes),
+      });
+      toast({ title: "Email sent", description: "Agreement sent through the server-side email integration." });
+    } catch (e) {
+      toast({ title: "Send failed", description: String(e), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

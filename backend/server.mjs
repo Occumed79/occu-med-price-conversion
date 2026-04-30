@@ -93,6 +93,36 @@ async function maybeSendEmail({ to, envelopeId, pdfHash, pdfBytes, certBytes }) 
   });
 }
 
+async function sendMemoEmail({ to, subject, text, pdfBytes, filename }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.MAIL_FROM;
+  if (!to || !apiKey || !from) {
+    throw new Error("Email provider not configured");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      text,
+      attachments: [
+        { filename, content: Buffer.from(pdfBytes).toString("base64") },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Resend send failed (${response.status}): ${details}`);
+  }
+}
+
 async function getEnvelope(envelopeId) {
   const { data, error } = await supabase
     .from("envelopes")
@@ -235,6 +265,24 @@ const server = http.createServer(async (req, res) => {
         pdfBase64: Buffer.from(pdfBytes).toString("base64"),
         certificateBase64: Buffer.from(certBytes).toString("base64"),
       });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/memos/send") {
+      const body = await readJson(req);
+      const { recipientEmail, subject, message, pdfBase64, filename } = body || {};
+      if (!recipientEmail || !pdfBase64) return sendJson(res, 400, { error: "recipientEmail and pdfBase64 are required." });
+      if (typeof pdfBase64 !== "string" || pdfBase64.length > 25_000_000) {
+        return sendJson(res, 413, { error: "PDF payload too large. Please reduce file size and try again." });
+      }
+      const pdfBytes = base64ToUint8(pdfBase64);
+      await sendMemoEmail({
+        to: recipientEmail,
+        subject: subject || "Occu-Med Memo",
+        text: message || "Please find the attached memo.",
+        pdfBytes,
+        filename: filename || "memo.pdf",
+      });
+      return sendJson(res, 200, { ok: true });
     }
 
     return sendJson(res, 404, { error: "Not found" });
