@@ -308,23 +308,55 @@ export const ProviderAgreementForm = ({ includeTermsBlock }: Props) => {
           )}
 
           <hr className="section-divider" />
-          <h3 className="text-base font-semibold text-[hsl(var(--label))] mb-3">Signature</h3>
-          <Row>
-            <Field label="Signature (typed name)" required>
-              <TextInput placeholder="Type your full name to sign" value={signatureName} onChange={(e) => setSignatureName(e.target.value)} />
-            </Field>
-            <Field label="Title">
-              <TextInput placeholder="e.g., Office Manager" value={signatureTitle} onChange={(e) => setSignatureTitle(e.target.value)} />
-            </Field>
-          </Row>
-          <Row>
-            <Field label="Date Signed">
-              <TextInput type="date" value={signatureDate} onChange={(e) => setSignatureDate(e.target.value)} />
-            </Field>
-            <Field label="Send To (Recipient Email)">
-              <TextInput type="email" placeholder="recipient@example.com" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} />
-            </Field>
-          </Row>
+          <h3 className="text-base font-semibold text-[hsl(var(--label))] mb-3">Signatures</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-border rounded-md p-4 bg-background">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+                Occu-Med Representative
+              </div>
+              <div className="flex items-center gap-3 mb-3 p-3 rounded bg-[hsl(var(--navy-deep))] text-white">
+                <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth="1.2">
+                  {[3, 5, 7, 9, 11, 13, 15, 17].map((r) => (
+                    <circle key={r} cx="22" cy="22" r={r} fill="none" />
+                  ))}
+                </svg>
+                <div className="text-xs">
+                  <div className="font-bold tracking-wide">OCCU-MED</div>
+                  <div className="opacity-70">Verified Electronic Signature</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Select value={data.directorName ? "Director of Network Management" : "Network Management Analyst"} onChange={() => undefined}>
+                  <option>Network Management Analyst</option>
+                  <option>Director of Network Management</option>
+                </Select>
+                <TextInput placeholder="Full name" value={data.analystName} onChange={(e) => set("analystName", e.target.value)} />
+                <TextInput type="date" value={data.dateOfMemo} onChange={(e) => set("dateOfMemo", e.target.value)} />
+              </div>
+            </div>
+            <div className="border border-border rounded-md p-4 bg-background">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+                Clinic Representative / Provider
+              </div>
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Type your full name to sign"
+                  value={signatureName}
+                  onChange={(e) => setSignatureName(e.target.value)}
+                  className="w-full px-3 py-3 rounded bg-[hsl(var(--navy-orb-1)/0.06)] border border-[hsl(var(--navy-orb-1)/0.3)] font-satisfy text-2xl text-[hsl(var(--navy-deep))] focus:outline-none focus:border-[hsl(var(--navy-orb-1))]"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <TextInput placeholder="Title (e.g., Office Manager)" value={signatureTitle} onChange={(e) => setSignatureTitle(e.target.value)} />
+                <TextInput placeholder="Full name (typed)" value={signatureName} onChange={(e) => setSignatureName(e.target.value)} />
+                <TextInput type="date" value={signatureDate} onChange={(e) => setSignatureDate(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <Field label="Send To (Recipient Email)">
+            <TextInput type="email" placeholder="recipient@example.com" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} />
+          </Field>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-3 px-9 py-5 border-t border-border print-hide">
