@@ -163,10 +163,11 @@ All colors MUST be HSL.
   .navy-header {
     position: relative;
     padding: 22px 36px;
+    min-height: 146px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 18px;
+    gap: 24px;
     overflow: hidden;
     background: #090e1a;
   }
@@ -266,8 +267,9 @@ All colors MUST be HSL.
 
   .header-title {
     font-family: "Source Serif 4", serif;
-    font-size: 34px;
+    font-size: 26px;
     font-weight: 600;
+    letter-spacing: 0.01em;
     color: #fff;
     line-height: 1.2;
     position: relative;
@@ -412,8 +414,8 @@ All colors MUST be HSL.
   }
 
   @media (max-width: 600px) {
-    .aurora-header, .navy-header { flex-direction: column; text-align: center; padding: 20px; }
-    .header-title { font-size: 28px; }
+    .aurora-header, .navy-header { flex-direction: column; text-align: center; padding: 20px; min-height: 0; }
+    .header-title { font-size: 24px; }
     .form-card > .aurora-header .header-title,
     .form-card > .navy-header .header-title { padding-left: 0; }
     .form-body { padding: 20px; }

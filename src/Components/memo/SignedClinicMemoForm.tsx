@@ -6,6 +6,7 @@ import { PriceTable } from "./PriceTable";
 import { ComponentSidebar } from "./ComponentSidebar";
 import { FACILITY_TYPES, PROVIDER_SPECIALTIES } from "@/data/examComponents";
 import {
+  appendAttachmentPages,
   downloadPdf,
 } from "@/lib/pdf";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/lib/backend";
 import { useToast } from "@/hooks/use-toast";
 import type { PriceRow, SignedClinicMemoData } from "@/types/memo";
+import { occuMedContactSheetAttachment, providerContactSheetAttachment } from "@/lib/contactSheetAttachments";
 
 const initial: SignedClinicMemoData = {
   analystName: "",
@@ -51,6 +53,8 @@ export const SignedClinicMemoForm = () => {
   const [envelopeId, setEnvelopeId] = useState<string>("");
   const viewedAtRef = useRef<string | undefined>(undefined);
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [includeOccuContactAttachment, setIncludeOccuContactAttachment] = useState(false);
+  const [includeProviderContactAttachment, setIncludeProviderContactAttachment] = useState(false);
   const { toast } = useToast();
 
   // Create authoritative envelope + viewed log on mount.
@@ -115,8 +119,12 @@ export const SignedClinicMemoForm = () => {
       });
 
       const pdfBytes = base64PdfToBytes(finalized.pdfBase64);
+      const attachmentPages = [];
+      if (includeOccuContactAttachment) attachmentPages.push(occuMedContactSheetAttachment());
+      if (includeProviderContactAttachment) attachmentPages.push(providerContactSheetAttachment());
+      const finalPdfBytes = attachmentPages.length ? await appendAttachmentPages(pdfBytes, attachmentPages) : pdfBytes;
       const certBytes = base64PdfToBytes(finalized.certificateBase64);
-      downloadPdf(pdfBytes, `${finalized.envelopeId}-signed.pdf`);
+      downloadPdf(finalPdfBytes, `${finalized.envelopeId}-signed.pdf`);
       setTimeout(() => downloadPdf(certBytes, `${finalized.envelopeId}-certificate.pdf`), 400);
 
       toast({
@@ -231,6 +239,15 @@ export const SignedClinicMemoForm = () => {
               onChange={(e) => set("notes", e.target.value)}
             />
           </Field>
+          <hr className="section-divider" />
+          <label className="flex items-center gap-2 text-sm mt-1 mb-2">
+            <input type="checkbox" checked={includeOccuContactAttachment} onChange={(e) => setIncludeOccuContactAttachment(e.target.checked)} />
+            Include attachment: Occu-Med Contact Information
+          </label>
+          <label className="flex items-center gap-2 text-sm mt-1 mb-2">
+            <input type="checkbox" checked={includeProviderContactAttachment} onChange={(e) => setIncludeProviderContactAttachment(e.target.checked)} />
+            Include attachment: Provider Contact Information
+          </label>
 
           <hr className="section-divider" />
 

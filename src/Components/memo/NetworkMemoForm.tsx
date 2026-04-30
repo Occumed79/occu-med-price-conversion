@@ -1,21 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { AuroraHeader } from "./Headers";
 import { Field, Row, TextInput, Select, Textarea } from "./FormAtoms";
 import { AddressBlock } from "./AddressBlock";
 import { PriceTable } from "./PriceTable";
 import { ComponentSidebar } from "./ComponentSidebar";
 import { downloadPdf, generateNetworkPdf } from "@/lib/pdf";
+import { apiSendMemoPdf } from "@/lib/backend";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Paperclip } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import type { NetworkMemoData } from "@/types/memo";
 
-interface EmailSettings {
-  publicKey: string;
-  serviceId: string;
-  templateId: string;
-}
-
-const EMAIL_SETTINGS_KEY = "networkMemo.emailSettings";
 
 const initial: NetworkMemoData = {
   analystName: "",
@@ -48,19 +42,12 @@ const CLINIC_TYPES_GROUPED: { label: string; options: string[] }[] = [
   { label: "Other", options: ["Collection Site"] },
 ];
 
-const loadEmailSettings = (): EmailSettings => {
-  try {
-    const raw = localStorage.getItem(EMAIL_SETTINGS_KEY);
-    if (!raw) return { publicKey: "", serviceId: "", templateId: "" };
-    const parsed = JSON.parse(raw) as Partial<EmailSettings>;
-    return {
-      publicKey: parsed.publicKey || "",
-      serviceId: parsed.serviceId || "",
-      templateId: parsed.templateId || "",
-    };
-  } catch {
-    return { publicKey: "", serviceId: "", templateId: "" };
-  }
+const bytesToBase64 = (bytes: Uint8Array) => {
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return btoa(binary);
 };
 
 export const NetworkMemoForm = () => {
@@ -68,23 +55,12 @@ export const NetworkMemoForm = () => {
   const [busy, setBusy] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [emailSettings, setEmailSettings] = useState<EmailSettings>(() => loadEmailSettings());
   const { toast } = useToast();
 
   const set = <K extends keyof NetworkMemoData>(k: K, v: NetworkMemoData[K]) =>
     setData((d) => ({ ...d, [k]: v }));
   const addComponent = (name: string) =>
     set("priceRows", [...data.priceRows, { id: `row-${Date.now()}-${Math.random()}`, component: name, price: "" }]);
-
-  const emailConfigured = useMemo(
-    () => Boolean(emailSettings.publicKey && emailSettings.serviceId && emailSettings.templateId),
-    [emailSettings],
-  );
-
-  useEffect(() => {
-    localStorage.setItem(EMAIL_SETTINGS_KEY, JSON.stringify(emailSettings));
-  }, [emailSettings]);
 
   const handleDownload = async () => {
     setBusy(true);
@@ -105,19 +81,24 @@ export const NetworkMemoForm = () => {
       return;
     }
 
-    await handleDownload();
-    const subject = encodeURIComponent(`Network Management Pricing Memo${data.dateOfMemo ? ` - ${data.dateOfMemo}` : ""}`);
-    const body = encodeURIComponent(
-      `Please see attached Network Management Pricing Memo.\n\nAnalyst: ${data.analystName || "N/A"}\nDate: ${data.dateOfMemo || "N/A"}`,
-    );
-    window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
-
-    toast({
-      title: emailConfigured ? "Send flow prepared" : "Memo ready",
-      description: emailConfigured
-        ? "Email settings are saved. PDF downloaded and your mail client opened."
-        : "PDF downloaded and your mail client opened for sending.",
-    });
+    setBusy(true);
+    try {
+      const bytes = await generateNetworkPdf(data);
+      const pdfBase64 = bytesToBase64(bytes);
+      const subject = `Network Management Pricing Memo${data.dateOfMemo ? ` - ${data.dateOfMemo}` : ""}`;
+      await apiSendMemoPdf({
+        recipientEmail,
+        subject,
+        message: `Please see attached Network Management Pricing Memo.\n\nAnalyst: ${data.analystName || "N/A"}\nDate: ${data.dateOfMemo || "N/A"}`,
+        filename: `network-memo-${data.dateOfMemo || Date.now()}.pdf`,
+        pdfBase64,
+      });
+      toast({ title: "Email sent", description: "Memo sent through the server-side email integration." });
+    } catch (e) {
+      toast({ title: "Send failed", description: String(e), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onFilesPicked = (files: FileList | null) => {
@@ -127,12 +108,8 @@ export const NetworkMemoForm = () => {
 
   return (
     <>
-      <button type="button" className="gear-btn print-hide" onClick={() => setShowSettings(true)} title="Email Settings">
-        <Settings size={18} />
-      </button>
-
       <div className="theme-navy flex flex-col md:flex-row gap-6 max-w-[1200px] mx-auto items-start">
-        <ComponentSidebar onAdd={(c) => addComponent(c.name)} />
+        <ComponentSidebar onAdd={(c) => addComponent(c.name)} headerTheme="aurora" />
       <div className="form-card flex-1" style={{ maxWidth: "none" }}>
         <AuroraHeader title="Network Management Pricing Memo" />
         <div className="form-body">
@@ -260,16 +237,7 @@ export const NetworkMemoForm = () => {
         </div>
 
         <div className="action-bar print-hide">
-          <div className="action-left">
-            <button type="button" className="btn btn-ghost" onClick={() => setShowSettings(true)}>
-              <Settings size={15} />
-              Email Settings
-            </button>
-            <span className={`emailjs-status ${emailConfigured ? "configured" : "not-configured"}`}>
-              {emailConfigured ? "Configured" : "Not configured"}
-            </span>
-            <span className="text-[11px] text-muted-foreground">Saved in this browser so you do not re-enter each time.</span>
-          </div>
+          <div className="action-left" />
           <div className="action-right">
             <button type="button" onClick={handleDownload} disabled={busy} className="btn btn-secondary">
               {busy ? "Generating…" : "Download PDF"}
@@ -280,47 +248,6 @@ export const NetworkMemoForm = () => {
           </div>
         </div>
       </div>
-      </div>
-
-      <div className={`modal-overlay ${showSettings ? "open" : ""}`} onClick={() => setShowSettings(false)}>
-        <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-head">
-            <h3>Email Settings · EmailJS</h3>
-            <button type="button" className="modal-close" onClick={() => setShowSettings(false)}>✕</button>
-          </div>
-          <div className="modal-body">
-            <p className="modal-desc">
-              Configure your EmailJS keys to keep your preferred delivery settings in this browser.
-            </p>
-            <div className="modal-field">
-              <label>Public Key</label>
-              <input
-                placeholder="e.g. user_xxxxxxxxxxxxxx"
-                value={emailSettings.publicKey}
-                onChange={(e) => setEmailSettings((s) => ({ ...s, publicKey: e.target.value }))}
-              />
-            </div>
-            <div className="modal-field">
-              <label>Service ID</label>
-              <input
-                placeholder="e.g. service_xxxxxxx"
-                value={emailSettings.serviceId}
-                onChange={(e) => setEmailSettings((s) => ({ ...s, serviceId: e.target.value }))}
-              />
-            </div>
-            <div className="modal-field">
-              <label>Template ID</label>
-              <input
-                placeholder="e.g. template_xxxxxxx"
-                value={emailSettings.templateId}
-                onChange={(e) => setEmailSettings((s) => ({ ...s, templateId: e.target.value }))}
-              />
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowSettings(false)}>Done</button>
-            </div>
-          </div>
-        </div>
       </div>
     </>
   );
