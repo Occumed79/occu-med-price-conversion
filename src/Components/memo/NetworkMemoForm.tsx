@@ -132,7 +132,7 @@ export const NetworkMemoForm = () => {
       </button>
 
       <div className="theme-navy flex flex-col md:flex-row gap-6 max-w-[1200px] mx-auto items-start">
-        <ComponentSidebar onAdd={(c) => addComponent(c.name)} />
+        <ComponentSidebar onAdd={(c) => addComponent(c.name)} headerTheme="aurora" />
       <div className="form-card flex-1" style={{ maxWidth: "none" }}>
         <AuroraHeader title="Network Management Pricing Memo" />
         <div className="form-body">
