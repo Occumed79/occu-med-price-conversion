@@ -8,6 +8,7 @@ import { FACILITY_TYPES, PROVIDER_SPECIALTIES } from "@/data/examComponents";
 import { appendAttachmentPages, downloadPdf, generateClinicPdf } from "@/lib/pdf";
 import { useToast } from "@/hooks/use-toast";
 import type { ClinicMemoData, PriceRow } from "@/types/memo";
+import { occuMedContactSheetAttachment, providerContactSheetAttachment } from "@/lib/contactSheetAttachments";
 
 interface Props {
   includeTermsBlock: boolean;
@@ -37,28 +38,8 @@ const newId = () => `row-${Date.now()}-${++_id}`;
 export const ProviderAgreementForm = ({ includeTermsBlock }: Props) => {
   const [data, setData] = useState<ClinicMemoData>(initial);
   const [busy, setBusy] = useState(false);
-  const [includeOccuContact, setIncludeOccuContact] = useState(false);
-  const [includeProviderContact, setIncludeProviderContact] = useState(false);
-  const [occuContact, setOccuContact] = useState({
-    organization: "Occu-Med",
-    contactName: "",
-    title: "",
-    email: "",
-    phone: "",
-    fax: "",
-    address: "",
-    billingEmail: "",
-  });
-  const [providerContact, setProviderContact] = useState({
-    organization: "",
-    contactName: "",
-    title: "",
-    email: "",
-    phone: "",
-    fax: "",
-    address: "",
-    afterHoursPhone: "",
-  });
+  const [includeOccuContactAttachment, setIncludeOccuContactAttachment] = useState(false);
+  const [includeProviderContactAttachment, setIncludeProviderContactAttachment] = useState(false);
   const [signatureName, setSignatureName] = useState("");
   const [signatureTitle, setSignatureTitle] = useState("");
   const [signatureDate, setSignatureDate] = useState("");
@@ -79,37 +60,8 @@ export const ProviderAgreementForm = ({ includeTermsBlock }: Props) => {
       const baseBytes = await generateClinicPdf(data);
       const attachmentPages: { title: string; fields: Array<{ label: string; value: string }> }[] = [];
 
-      if (includeOccuContact) {
-        attachmentPages.push({
-          title: "Occu-Med Contact Information",
-          fields: [
-            { label: "Organization", value: occuContact.organization },
-            { label: "Primary Contact Name", value: occuContact.contactName },
-            { label: "Title", value: occuContact.title },
-            { label: "Email", value: occuContact.email },
-            { label: "Phone", value: occuContact.phone },
-            { label: "Fax", value: occuContact.fax },
-            { label: "Address", value: occuContact.address },
-            { label: "Billing Email", value: occuContact.billingEmail },
-          ],
-        });
-      }
-
-      if (includeProviderContact) {
-        attachmentPages.push({
-          title: "Provider Contact Information",
-          fields: [
-            { label: "Organization", value: providerContact.organization },
-            { label: "Primary Contact Name", value: providerContact.contactName },
-            { label: "Title", value: providerContact.title },
-            { label: "Email", value: providerContact.email },
-            { label: "Phone", value: providerContact.phone },
-            { label: "After-hours Phone", value: providerContact.afterHoursPhone },
-            { label: "Fax", value: providerContact.fax },
-            { label: "Address", value: providerContact.address },
-          ],
-        });
-      }
+      if (includeOccuContactAttachment) attachmentPages.push(occuMedContactSheetAttachment());
+      if (includeProviderContactAttachment) attachmentPages.push(providerContactSheetAttachment());
 
       const finalBytes = await appendAttachmentPages(baseBytes, attachmentPages);
       downloadPdf(finalBytes, `provider-service-agreement-${data.dateOfMemo || Date.now()}.pdf`);
@@ -250,62 +202,14 @@ export const ProviderAgreementForm = ({ includeTermsBlock }: Props) => {
           <hr className="section-divider" />
 
           <label className="flex items-center gap-2 text-sm mb-2">
-            <input type="checkbox" checked={includeOccuContact} onChange={(e) => setIncludeOccuContact(e.target.checked)} />
+            <input type="checkbox" checked={includeOccuContactAttachment} onChange={(e) => setIncludeOccuContactAttachment(e.target.checked)} />
             Include attachment: Occu-Med Contact Information
           </label>
-          {includeOccuContact && (
-            <Row>
-              <Field label="Organization"><TextInput value={occuContact.organization} onChange={(e) => setOccuContact((s) => ({ ...s, organization: e.target.value }))} /></Field>
-              <Field label="Primary Contact Name"><TextInput value={occuContact.contactName} onChange={(e) => setOccuContact((s) => ({ ...s, contactName: e.target.value }))} /></Field>
-            </Row>
-          )}
-          {includeOccuContact && (
-            <Row>
-              <Field label="Title"><TextInput value={occuContact.title} onChange={(e) => setOccuContact((s) => ({ ...s, title: e.target.value }))} /></Field>
-              <Field label="Occu-Med Contact Email"><TextInput type="email" value={occuContact.email} onChange={(e) => setOccuContact((s) => ({ ...s, email: e.target.value }))} /></Field>
-            </Row>
-          )}
-          {includeOccuContact && (
-            <Row>
-              <Field label="Occu-Med Contact Phone"><TextInput value={occuContact.phone} onChange={(e) => setOccuContact((s) => ({ ...s, phone: e.target.value }))} /></Field>
-              <Field label="Fax"><TextInput value={occuContact.fax} onChange={(e) => setOccuContact((s) => ({ ...s, fax: e.target.value }))} /></Field>
-            </Row>
-          )}
-          {includeOccuContact && (
-            <Row>
-              <Field label="Address"><TextInput value={occuContact.address} onChange={(e) => setOccuContact((s) => ({ ...s, address: e.target.value }))} /></Field>
-              <Field label="Billing Email"><TextInput type="email" value={occuContact.billingEmail} onChange={(e) => setOccuContact((s) => ({ ...s, billingEmail: e.target.value }))} /></Field>
-            </Row>
-          )}
 
           <label className="flex items-center gap-2 text-sm mt-3 mb-2">
-            <input type="checkbox" checked={includeProviderContact} onChange={(e) => setIncludeProviderContact(e.target.checked)} />
+            <input type="checkbox" checked={includeProviderContactAttachment} onChange={(e) => setIncludeProviderContactAttachment(e.target.checked)} />
             Include attachment: Provider Contact Information
           </label>
-          {includeProviderContact && (
-            <Row>
-              <Field label="Organization"><TextInput value={providerContact.organization} onChange={(e) => setProviderContact((s) => ({ ...s, organization: e.target.value }))} /></Field>
-              <Field label="Primary Contact Name"><TextInput value={providerContact.contactName} onChange={(e) => setProviderContact((s) => ({ ...s, contactName: e.target.value }))} /></Field>
-            </Row>
-          )}
-          {includeProviderContact && (
-            <Row>
-              <Field label="Title"><TextInput value={providerContact.title} onChange={(e) => setProviderContact((s) => ({ ...s, title: e.target.value }))} /></Field>
-              <Field label="Provider Contact Email"><TextInput type="email" value={providerContact.email} onChange={(e) => setProviderContact((s) => ({ ...s, email: e.target.value }))} /></Field>
-            </Row>
-          )}
-          {includeProviderContact && (
-            <Row>
-              <Field label="Provider Contact Phone"><TextInput value={providerContact.phone} onChange={(e) => setProviderContact((s) => ({ ...s, phone: e.target.value }))} /></Field>
-              <Field label="After-hours Phone"><TextInput value={providerContact.afterHoursPhone} onChange={(e) => setProviderContact((s) => ({ ...s, afterHoursPhone: e.target.value }))} /></Field>
-            </Row>
-          )}
-          {includeProviderContact && (
-            <Row>
-              <Field label="Fax"><TextInput value={providerContact.fax} onChange={(e) => setProviderContact((s) => ({ ...s, fax: e.target.value }))} /></Field>
-              <Field label="Provider Contact Address"><TextInput value={providerContact.address} onChange={(e) => setProviderContact((s) => ({ ...s, address: e.target.value }))} /></Field>
-            </Row>
-          )}
 
           <hr className="section-divider" />
           <h3 className="text-base font-semibold text-[hsl(var(--label))] mb-3">Signatures</h3>
