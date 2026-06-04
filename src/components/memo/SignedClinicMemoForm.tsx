@@ -8,6 +8,9 @@ import { FACILITY_TYPES, PROVIDER_SPECIALTIES } from "@/data/examComponents";
 import {
   appendAttachmentPages,
   downloadPdf,
+  generateSignedClinicPdf,
+  generateCertificate,
+  sha256,
 } from "@/lib/pdf";
 import {
   apiCreateEnvelope,
@@ -55,6 +58,7 @@ export const SignedClinicMemoForm = () => {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [includeOccuContactAttachment, setIncludeOccuContactAttachment] = useState(false);
   const [includeProviderContactAttachment, setIncludeProviderContactAttachment] = useState(false);
+  const [backendWarning, setBackendWarning] = useState<string>("");
   const { toast } = useToast();
 
   // Create authoritative envelope + viewed log on mount.
@@ -68,6 +72,9 @@ export const SignedClinicMemoForm = () => {
         viewedAtRef.current = viewed.viewedAt;
       } catch (e) {
         console.warn("Backend envelope bootstrap failed", e);
+        setBackendWarning(
+          "The signed-envelope service is currently unavailable. You can still complete and download an unverified local PDF + certificate, but no authoritative envelope or audit trail will be recorded until the backend (VITE_API_BASE_URL) and Supabase are configured.",
+        );
       }
     })();
   }, []);
@@ -78,6 +85,43 @@ export const SignedClinicMemoForm = () => {
   const addComponent = (name: string) => {
     const row: PriceRow = { id: newId(), component: name, price: "" };
     set("priceRows", [...data.priceRows, row]);
+  };
+
+  const withAttachments = async (pdfBytes: Uint8Array) => {
+    const attachmentPages = [];
+    if (includeOccuContactAttachment) attachmentPages.push(occuMedContactSheetAttachment());
+    if (includeProviderContactAttachment) attachmentPages.push(providerContactSheetAttachment());
+    return attachmentPages.length ? await appendAttachmentPages(pdfBytes, attachmentPages) : pdfBytes;
+  };
+
+  // Fallback used when the signed-envelope backend is unavailable. Generates the
+  // signed PDF + certificate entirely client-side so the user can still download
+  // their documents. These are clearly flagged as unverified (no server audit).
+  const signLocally = async (finalData: SignedClinicMemoData) => {
+    const localEnvelopeId = envelopeId || `OM-LOCAL-${Date.now()}`;
+    const basePdf = await generateSignedClinicPdf(finalData, localEnvelopeId);
+    const finalPdfBytes = await withAttachments(basePdf);
+    const pdfHash = await sha256(finalPdfBytes);
+    const signedAt = new Date().toISOString();
+    const certBytes = await generateCertificate(localEnvelopeId, pdfHash, {
+      createdAt: signedAt,
+      viewedAt: viewedAtRef.current,
+      signedAt,
+      ipAddress: "Not captured (local copy)",
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+      occuMedRepName: finalData.occuMedRepName,
+      clinicRepFullName: finalData.clinicRepFullName,
+      agreedElectronic: finalData.agreedElectronic,
+    });
+    downloadPdf(finalPdfBytes, `${localEnvelopeId}-signed.pdf`);
+    setTimeout(() => downloadPdf(certBytes, `${localEnvelopeId}-certificate.pdf`), 400);
+    setBackendWarning(
+      "The signing service is unavailable, so an unverified local PDF and certificate were generated. No authoritative envelope or audit record was created.",
+    );
+    toast({
+      title: "Saved local copy",
+      description: `Local document ${localEnvelopeId} downloaded. This copy is unverified \u2014 the backend recorded no envelope or audit trail.`,
+    });
   };
 
   const handleSign = async () => {
@@ -99,6 +143,11 @@ export const SignedClinicMemoForm = () => {
     }
 
     setBusy(true);
+    const finalData: SignedClinicMemoData = {
+      ...data,
+      occuMedRepDate: data.occuMedRepDate || new Date().toISOString().slice(0, 10),
+      clinicRepDate: data.clinicRepDate || new Date().toISOString().slice(0, 10),
+    };
     try {
       let activeEnvelopeId = envelopeId;
       if (!activeEnvelopeId) {
@@ -107,11 +156,6 @@ export const SignedClinicMemoForm = () => {
         setEnvelopeId(created.envelopeId);
       }
 
-      const finalData: SignedClinicMemoData = {
-        ...data,
-        occuMedRepDate: data.occuMedRepDate || new Date().toISOString().slice(0, 10),
-        clinicRepDate: data.clinicRepDate || new Date().toISOString().slice(0, 10),
-      };
       const finalized = await apiFinalizeEnvelope(activeEnvelopeId, {
         data: finalData,
         viewedAt: viewedAtRef.current,
@@ -119,20 +163,25 @@ export const SignedClinicMemoForm = () => {
       });
 
       const pdfBytes = base64PdfToBytes(finalized.pdfBase64);
-      const attachmentPages = [];
-      if (includeOccuContactAttachment) attachmentPages.push(occuMedContactSheetAttachment());
-      if (includeProviderContactAttachment) attachmentPages.push(providerContactSheetAttachment());
-      const finalPdfBytes = attachmentPages.length ? await appendAttachmentPages(pdfBytes, attachmentPages) : pdfBytes;
+      const finalPdfBytes = await withAttachments(pdfBytes);
       const certBytes = base64PdfToBytes(finalized.certificateBase64);
       downloadPdf(finalPdfBytes, `${finalized.envelopeId}-signed.pdf`);
       setTimeout(() => downloadPdf(certBytes, `${finalized.envelopeId}-certificate.pdf`), 400);
 
+      setBackendWarning("");
       toast({
         title: "Signed & sealed",
         description: `Envelope ${finalized.envelopeId} finalized. Hash ${finalized.pdfHash.slice(0, 16)}…`,
       });
     } catch (e) {
-      toast({ title: "Signing failed", description: String(e), variant: "destructive" });
+      // Backend/env unavailable: degrade gracefully to a local, unverified copy
+      // instead of failing the whole signing workflow.
+      console.warn("Signed envelope backend failed; generating local copy", e);
+      try {
+        await signLocally(finalData);
+      } catch (localErr) {
+        toast({ title: "Signing failed", description: String(localErr), variant: "destructive" });
+      }
     } finally {
       setBusy(false);
     }
@@ -145,6 +194,14 @@ export const SignedClinicMemoForm = () => {
       <div className="form-card flex-1" style={{ maxWidth: "none" }}>
         <NavyHeader title="Network Management Provider Pricing Sheet" />
         <div className="form-body">
+          {backendWarning && (
+            <div
+              role="alert"
+              className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              {backendWarning}
+            </div>
+          )}
           <Row>
             <Field label="Network Management Analyst Name" required>
               <TextInput placeholder="Full name" value={data.analystName} onChange={(e) => set("analystName", e.target.value)} />
