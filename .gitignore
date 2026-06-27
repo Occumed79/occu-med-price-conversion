@@ -13,6 +13,9 @@ dist-ssr
 *.local
 .env
 
+# Backend fallback data
+backend/.data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
