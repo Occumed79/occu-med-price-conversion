@@ -4,12 +4,14 @@ import { Search, Plus } from "lucide-react";
 
 interface Props {
   onAdd: (component: ExamComponent) => void;
-  headerTheme?: "navy" | "aurora";
+  activeIds: string[];
 }
 
-export const ComponentSidebar = ({ onAdd, headerTheme = "navy" }: Props) => {
+export const ComponentSidebar = ({ onAdd, activeIds }: Props) => {
   const [query, setQuery] = useState("");
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({});
+
+  const activeSet = new Set(activeIds);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -22,9 +24,9 @@ export const ComponentSidebar = ({ onAdd, headerTheme = "navy" }: Props) => {
 
   return (
     <aside className="w-full md:w-72 bg-card rounded-xl shadow-[var(--shadow-card)] overflow-hidden flex flex-col max-h-[85vh] sticky top-4">
-      <div className={`${headerTheme === "aurora" ? "aurora-header" : "navy-header"} justify-center`} style={{ padding: "14px 16px", minHeight: "auto" }}>
-        {headerTheme === "navy" && <div className="navy-orb navy-orb-1" style={{ width: 60, height: 60 }} />}
-        {headerTheme === "navy" && <div className="navy-orb navy-orb-2" style={{ width: 50, height: 50 }} />}
+      <div className="navy-header justify-center" style={{ padding: "14px 16px", minHeight: "auto" }}>
+        <div className="navy-orb navy-orb-1" style={{ width: 60, height: 60 }} />
+        <div className="navy-orb navy-orb-2" style={{ width: 50, height: 50 }} />
         <div className="header-title text-center" style={{ fontSize: 18 }}>Exam Components</div>
       </div>
       <div className="p-3 border-b border-border">
@@ -53,18 +55,24 @@ export const ComponentSidebar = ({ onAdd, headerTheme = "navy" }: Props) => {
               </button>
               {isOpen && (
                 <ul className="mt-1 space-y-1">
-                  {cat.items.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => onAdd(item)}
-                        className="w-full text-left text-[12.5px] leading-snug px-2 py-1.5 rounded hover:bg-[hsl(var(--navy-orb-1)/0.10)] flex items-start gap-2 group"
-                      >
-                        <Plus className="h-3.5 w-3.5 mt-0.5 text-[hsl(var(--navy-orb-1))] shrink-0 opacity-60 group-hover:opacity-100" />
-                        <span className="text-foreground break-words whitespace-normal">{item.name}</span>
-                      </button>
-                    </li>
-                  ))}
+                  {cat.items.map((item) => {
+                    const isActive = activeSet.has(item.id);
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => !isActive && onAdd(item)}
+                          disabled={isActive}
+                          className={`w-full text-left text-[12.5px] leading-snug px-2 py-1.5 rounded flex items-start gap-2 group ${
+                            isActive ? "opacity-40 cursor-not-allowed" : "hover:bg-[hsl(var(--navy-orb-1)/0.10)]"
+                          }`}
+                        >
+                          <Plus className="h-3.5 w-3.5 mt-0.5 text-[hsl(var(--navy-orb-1))] shrink-0 opacity-60 group-hover:opacity-100" />
+                          <span className="text-foreground break-words whitespace-normal">{item.name}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

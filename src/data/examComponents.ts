@@ -1,4 +1,4 @@
-// Exam component categories used in the Clinic form sidebar.
+// Exam component categories used in the price conversion board.
 // Click a component to add a row to the price table.
 
 export interface ExamComponent {
@@ -242,43 +242,4 @@ export const EXAM_CATEGORIES: ExamCategory[] = [
       c("Collection Fee"),
     ],
   },
-];
-
-export const PROVIDER_SPECIALTIES = [
-  "Dental Examiner",
-  "Medical Examiner",
-  "DOT Examiner",
-  "FAA Examiner",
-  "Pharmacist",
-  "Independent Medical Examiner",
-  "Neurologist",
-  "Orthopedist",
-  "Cardiologist",
-  "Psychiatrist",
-  "Optometrist",
-  "Ophthalmologist",
-  "Gastroenterology",
-  "Pulmonologist",
-  "Fitness-for-Duty Evaluator",
-  "Audiologist",
-  "ENT",
-  "Occupational Health Examiner",
-  "Radiologist",
-  "Physicians Assistant",
-  "Nurse Practitioner",
-  "Allied Health Professional",
-];
-
-export const FACILITY_TYPES = [
-  "Laboratory",
-  "Pharmacy",
-  "Medical Practice",
-  "Dental Practice",
-  "Specialty Practice",
-  "Hospital",
-  "Urgent Care",
-  "Radiology Center",
-  "Specimen Collection Site",
-  "Multi Specialty Clinic",
-  "Polyclinic",
 ];
