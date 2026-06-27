@@ -132,34 +132,36 @@ All colors MUST be HSL.
 
   .liquid-bg {
     background:
-      radial-gradient(circle at 10% 20%, rgba(120, 119, 198, 0.35) 0%, transparent 40%),
-      radial-gradient(circle at 90% 80%, rgba(0, 255, 255, 0.25) 0%, transparent 40%),
-      radial-gradient(circle at 50% 50%, rgba(255, 119, 198, 0.15) 0%, transparent 60%),
+      radial-gradient(circle at 10% 20%, rgba(120, 119, 198, 0.55) 0%, transparent 45%),
+      radial-gradient(circle at 90% 80%, rgba(0, 255, 255, 0.45) 0%, transparent 45%),
+      radial-gradient(circle at 50% 50%, rgba(255, 119, 198, 0.28) 0%, transparent 65%),
       linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
     background-attachment: fixed;
     min-height: 100vh;
   }
 
   .glass-panel {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.14);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 20px;
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.25),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 0 24px rgba(255, 255, 255, 0.08);
   }
 
   .glass-card {
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 24px;
     box-shadow:
       0 12px 48px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 32px rgba(255, 255, 255, 0.1);
     overflow: hidden;
   }
 
@@ -172,10 +174,10 @@ All colors MUST be HSL.
     justify-content: center;
     gap: 24px;
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(14, 165, 233, 0.25) 0%, rgba(99, 102, 241, 0.25) 50%, rgba(236, 72, 153, 0.2) 100%);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.42) 0%, rgba(99, 102, 241, 0.42) 50%, rgba(236, 72, 153, 0.35) 100%);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   }
 
   .glass-header::before {
@@ -184,11 +186,11 @@ All colors MUST be HSL.
     inset: -50%;
     background: conic-gradient(
       from 180deg at 50% 50%,
-      rgba(14, 165, 233, 0.3) 0deg,
-      rgba(99, 102, 241, 0.3) 90deg,
-      rgba(236, 72, 153, 0.3) 180deg,
-      rgba(14, 165, 233, 0.3) 270deg,
-      rgba(14, 165, 233, 0.3) 360deg
+      rgba(14, 165, 233, 0.55) 0deg,
+      rgba(99, 102, 241, 0.55) 90deg,
+      rgba(236, 72, 153, 0.55) 180deg,
+      rgba(14, 165, 233, 0.55) 270deg,
+      rgba(14, 165, 233, 0.55) 360deg
     );
     filter: blur(40px);
     animation: liquidRotate 20s linear infinite;
@@ -205,8 +207,8 @@ All colors MUST be HSL.
     border-radius: 12px;
     font-size: 14px;
     font-weight: 600;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.18);
     color: white;
     cursor: pointer;
     display: flex;
@@ -217,8 +219,8 @@ All colors MUST be HSL.
   }
 
   .btn-glass:hover {
-    background: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.28);
+    border-color: rgba(255, 255, 255, 0.4);
     transform: translateY(-1px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   }

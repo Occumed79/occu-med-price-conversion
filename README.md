@@ -41,6 +41,7 @@ create table if not exists sheets (
   name text not null,
   source_currency text not null default 'EUR',
   rows jsonb not null default '[]'::jsonb,
+  adjustments jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
