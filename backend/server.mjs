@@ -67,13 +67,11 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
+  if (req.method === "GET" && url.pathname === "/health") {
+    return sendJson(res, 200, { ok: true, service: "occu-med-price-conversion", timestamp: new Date().toISOString() });
+  }
+
   try {
-    await initDb();
-
-    if (req.method === "GET" && url.pathname === "/health") {
-      return sendJson(res, 200, { ok: true, service: "occu-med-price-conversion", timestamp: new Date().toISOString() });
-    }
-
     if (req.method === "GET" && url.pathname === "/api/sheets") {
       const { rows } = await pool.query(
         "select id, name, target_currency, rows, created_at, updated_at from sheets order by updated_at desc"
@@ -130,6 +128,17 @@ const server = http.createServer(async (req, res) => {
 });
 
 const port = Number(process.env.PORT || 3001);
-server.listen(port, () => {
-  console.log(`price-conversion backend listening on :${port}`);
-});
+
+async function start() {
+  try {
+    await initDb();
+    console.log("database initialized");
+  } catch (error) {
+    console.error("database init failed:", error);
+  }
+  server.listen(port, () => {
+    console.log(`price-conversion backend listening on :${port}`);
+  });
+}
+
+start();
