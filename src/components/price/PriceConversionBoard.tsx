@@ -228,7 +228,7 @@ export const PriceConversionBoard = () => {
             <div className="glass-card overflow-hidden">
               <div className="glass-header flex-col items-center text-center py-6">
                 <div className="flex flex-col items-center gap-3 z-10">
-                  <img src="/logo.svg" alt="Occu-Med" className="h-14 w-auto" />
+                  <img src="/occu-med-logo.png" alt="Occu-Med" className="h-14 w-auto" />
                   <div className="header-title" style={{ fontSize: 24 }}>Price Conversion Board</div>
                 </div>
                 <div className="text-sm text-white/70 z-10 mt-1">Convert any currency to USD · Shared sheets</div>
@@ -497,7 +497,7 @@ export const PriceConversionBoard = () => {
             </div>
 
             <div className="report-header">
-              <img src="/logo.svg" alt="Occu-Med" className="report-logo" />
+              <img src="/occu-med-logo.png" alt="Occu-Med" className="report-logo" />
               <div className="report-meta">
                 <div className="report-title">{sheetName || "Pricing Report"}</div>
                 <div className="report-subtitle">Currency Conversion Sheet</div>
