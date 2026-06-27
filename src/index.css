@@ -245,6 +245,39 @@ All colors MUST be HSL.
     border-color: rgba(244, 63, 94, 0.5);
   }
 
+  .glass-card,
+  .glass-panel {
+    transition: all 0.3s ease;
+  }
+
+  .glass-card:hover {
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 0 48px rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+
+  .glass-panel:hover {
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 0 40px rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.32);
+    transform: translateY(-2px);
+  }
+
+  .btn-glass:active,
+  .btn-glass-danger:active {
+    animation: clickGlow 0.4s ease-out;
+  }
+
+  @keyframes clickGlow {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); }
+    50% { box-shadow: 0 0 20px 8px rgba(255, 255, 255, 0.2); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+  }
+
   .glass-panel input,
   .glass-panel select,
   .glass-card input,
