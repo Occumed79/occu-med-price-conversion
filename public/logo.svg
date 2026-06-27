@@ -1,13 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80" fill="none">
-  <g fill="#FFFFFF">
-    <!-- left circle split -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 156" fill="none" role="img" aria-labelledby="occuMedLogoTitle">
+  <title id="occuMedLogoTitle">Occu-Med</title>
+  <g fill="#FFFFFF" transform="translate(48 4)">
     <path d="M35 8C19.54 8 7 20.54 7 36v28c0 2.21 1.79 4 4 4h24c2.21 0 4-1.79 4-4V36c0-2.21-1.79-4-4-4H19c-2.21 0-4-1.79-4-4 0-6.63 5.37-12 12-12h4c2.21 0 4-1.79 4-4s-1.79-4-4-4Z" />
-    <!-- vertical divider -->
     <rect x="33" y="8" width="4" height="60" />
-    <!-- middle rounded shape -->
     <path d="M95 8H65c-2.21 0-4 1.79-4 4v56c0 2.21 1.79 4 4 4h30c2.21 0 4-1.79 4-4V12c0-2.21-1.79-4-4-4Zm-4 52H69V16h22v44Z" />
-    <!-- right rounded shape -->
     <path d="M160 8h-30c-2.21 0-4 1.79-4 4v56c0 2.21 1.79 4 4 4h30c2.21 0 4-1.79 4-4V12c0-2.21-1.79-4-4-4Zm-4 52h-22V32c0-6.63 5.37-12 12-12h10v40Z" />
   </g>
-  <text x="120" y="76" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">OCCU-MED</text>
+  <text x="130" y="145" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" letter-spacing="1.5" fill="#FFFFFF" text-anchor="middle">OCCU-MED</text>
 </svg>
