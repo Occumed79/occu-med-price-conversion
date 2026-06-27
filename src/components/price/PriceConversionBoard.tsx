@@ -4,8 +4,8 @@ import { fetchLiveRates, formatCurrency, formatRate } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { CURRENCIES } from "@/data/currencies";
 import { EXAM_CATEGORIES, type ExamComponent } from "@/data/examComponents";
-import { getSavedSheets, saveSheet, updateSheet, deleteSheet, type SavedSheet, type SheetRow } from "@/lib/sheets";
-import { RefreshCw, Trash2, Calculator, Save, FolderOpen, X, Plus } from "lucide-react";
+import { listSheets, createSheet, updateSheet, deleteSheet, type SavedSheet, type SheetRow } from "@/lib/sheetsApi";
+import { RefreshCw, Trash2, Calculator, Save, FolderOpen, X } from "lucide-react";
 
 interface PriceRow {
   id: string;
@@ -24,35 +24,44 @@ const componentById = (id: string): ExamComponent | undefined => {
 export const PriceConversionBoard = () => {
   const [rows, setRows] = useState<PriceRow[]>([]);
   const [rates, setRates] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(false);
+  const [ratesLoading, setRatesLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [targetCurrency, setTargetCurrency] = useState<string>("EUR");
   const [sheetName, setSheetName] = useState<string>("");
   const [savedSheets, setSavedSheets] = useState<SavedSheet[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [currentSheetId, setCurrentSheetId] = useState<string | null>(null);
+  const [sheetsLoading, setSheetsLoading] = useState(false);
   const { toast } = useToast();
 
   const loadRates = async () => {
-    setLoading(true);
+    setRatesLoading(true);
     try {
       const data = await fetchLiveRates();
       setRates(data.rates);
       setLastUpdated(new Date().toLocaleString());
     } catch (e) {
-      toast({
-        title: "Rate update failed",
-        description: String(e),
-        variant: "destructive",
-      });
+      toast({ title: "Rate update failed", description: String(e), variant: "destructive" });
     } finally {
-      setLoading(false);
+      setRatesLoading(false);
+    }
+  };
+
+  const loadSavedSheets = async () => {
+    setSheetsLoading(true);
+    try {
+      const sheets = await listSheets();
+      setSavedSheets(sheets);
+    } catch (e) {
+      toast({ title: "Failed to load sheets", description: String(e), variant: "destructive" });
+    } finally {
+      setSheetsLoading(false);
     }
   };
 
   useEffect(() => {
     loadRates();
-    setSavedSheets(getSavedSheets());
+    loadSavedSheets();
     const interval = setInterval(loadRates, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -80,52 +89,56 @@ export const PriceConversionBoard = () => {
     rows.map((r) => ({ id: r.id, componentId: r.component.id, componentName: r.component.name, priceUsd: r.priceUsd }));
 
   const fromSheetRows = (sheetRows: SheetRow[]): PriceRow[] =>
-    sheetRows
-      .map((sr) => {
-        const component = componentById(sr.componentId) || { id: sr.componentId, name: sr.componentName };
-        return { id: sr.id || `row-${Date.now()}-${Math.random()}`, component, priceUsd: sr.priceUsd };
-      });
+    sheetRows.map((sr) => {
+      const component = componentById(sr.componentId) || { id: sr.componentId, name: sr.componentName };
+      return { id: sr.id || `row-${Date.now()}-${Math.random()}`, component, priceUsd: sr.priceUsd };
+    });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (rows.length === 0) {
       toast({ title: "Nothing to save", description: "Add at least one component first.", variant: "destructive" });
       return;
     }
     const name = sheetName.trim() || `Sheet ${new Date().toLocaleString()}`;
-    const payload = { name, targetCurrency, rows: toSheetRows() };
-    if (currentSheetId) {
-      const existing = savedSheets.find((s) => s.id === currentSheetId);
-      if (existing) {
-        const updated = updateSheet({ ...existing, ...payload });
-        setSavedSheets(getSavedSheets());
+    const payload = { name, target_currency: targetCurrency, rows: toSheetRows() };
+    try {
+      if (currentSheetId) {
+        const updated = await updateSheet(currentSheetId, payload);
+        setSavedSheets(await listSheets());
         toast({ title: "Sheet updated", description: updated.name });
-        return;
+      } else {
+        const saved = await createSheet(payload);
+        setSavedSheets(await listSheets());
+        setCurrentSheetId(saved.id);
+        setSheetName(saved.name);
+        toast({ title: "Sheet saved", description: saved.name });
       }
+    } catch (e) {
+      toast({ title: "Save failed", description: String(e), variant: "destructive" });
     }
-    const saved = saveSheet(payload);
-    setSavedSheets(getSavedSheets());
-    setCurrentSheetId(saved.id);
-    setSheetName(saved.name);
-    toast({ title: "Sheet saved", description: saved.name });
   };
 
-  const handleLoad = (sheet: SavedSheet) => {
+  const handleLoad = async (sheet: SavedSheet) => {
     setRows(fromSheetRows(sheet.rows));
-    setTargetCurrency(sheet.targetCurrency);
+    setTargetCurrency(sheet.target_currency);
     setSheetName(sheet.name);
     setCurrentSheetId(sheet.id);
     setShowSaved(false);
     toast({ title: "Sheet loaded", description: sheet.name });
   };
 
-  const handleDelete = (id: string) => {
-    deleteSheet(id);
-    setSavedSheets(getSavedSheets());
-    if (currentSheetId === id) {
-      setCurrentSheetId(null);
-      setSheetName("");
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteSheet(id);
+      setSavedSheets(await listSheets());
+      if (currentSheetId === id) {
+        setCurrentSheetId(null);
+        setSheetName("");
+      }
+      toast({ title: "Sheet deleted" });
+    } catch (e) {
+      toast({ title: "Delete failed", description: String(e), variant: "destructive" });
     }
-    toast({ title: "Sheet deleted" });
   };
 
   const target = CURRENCIES.find((c) => c.code === targetCurrency);
@@ -148,7 +161,7 @@ export const PriceConversionBoard = () => {
                 <Calculator className="h-7 w-7 text-white" />
                 <div className="header-title" style={{ fontSize: 24 }}>Price Conversion Board</div>
               </div>
-              <div className="text-sm text-white/70 z-10 mt-1">Live currency rates · USD base · Auto-refresh</div>
+              <div className="text-sm text-white/70 z-10 mt-1">Live currency rates · USD base · Shared sheets</div>
             </div>
 
             <div className="p-6 space-y-6">
@@ -181,10 +194,10 @@ export const PriceConversionBoard = () => {
                   <button
                     type="button"
                     onClick={loadRates}
-                    disabled={loading}
+                    disabled={ratesLoading}
                     className="mt-2 text-sm text-cyan-300 hover:underline flex items-center gap-1 disabled:opacity-60"
                   >
-                    <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`h-3 w-3 ${ratesLoading ? "animate-spin" : ""}`} />
                     Refresh
                   </button>
                 </div>
@@ -202,28 +215,16 @@ export const PriceConversionBoard = () => {
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    className="btn-glass flex items-center gap-2"
-                  >
+                  <button type="button" onClick={handleSave} className="btn-glass flex items-center gap-2">
                     <Save className="h-4 w-4" />
                     {currentSheetId ? "Update" : "Save"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowSaved((v) => !v)}
-                    className="btn-glass flex items-center gap-2"
-                  >
+                  <button type="button" onClick={() => { setShowSaved((v) => !v); if (!showSaved) loadSavedSheets(); }} className="btn-glass flex items-center gap-2">
                     <FolderOpen className="h-4 w-4" />
                     {showSaved ? "Close" : "Saved"}
                   </button>
                   {rows.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={clearRows}
-                      className="btn-glass-danger"
-                    >
+                    <button type="button" onClick={clearRows} className="btn-glass-danger">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
@@ -236,7 +237,9 @@ export const PriceConversionBoard = () => {
                     <div className="text-white font-semibold">Saved Sheets</div>
                     <button onClick={() => setShowSaved(false)} className="text-white/60 hover:text-white"><X className="h-4 w-4" /></button>
                   </div>
-                  {savedSheets.length === 0 ? (
+                  {sheetsLoading ? (
+                    <div className="text-sm text-white/50">Loading sheets...</div>
+                  ) : savedSheets.length === 0 ? (
                     <div className="text-sm text-white/50">No saved sheets yet.</div>
                   ) : (
                     <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -248,7 +251,7 @@ export const PriceConversionBoard = () => {
                             className="text-left text-sm text-white/90 flex-1"
                           >
                             <div className="font-medium">{sheet.name}</div>
-                            <div className="text-xs text-white/50">{sheet.rows.length} items · {sheet.targetCurrency} · {new Date(sheet.updatedAt).toLocaleString()}</div>
+                            <div className="text-xs text-white/50">{sheet.rows.length} items · {sheet.target_currency} · {new Date(sheet.updated_at).toLocaleString()}</div>
                           </button>
                           <button
                             type="button"
@@ -329,7 +332,7 @@ export const PriceConversionBoard = () => {
               )}
 
               <div className="text-sm text-white/50">
-                Rates auto-refresh every hour. Sheets are saved to your browser and persist across sessions.
+                Rates auto-refresh every hour. Sheets are stored in Supabase and shared across users.
               </div>
             </div>
           </div>
