@@ -2,9 +2,9 @@
    Intentional scope: header logo sizing and hover/click illumination only. */
 
 .glass-header img[alt="Occu-Med"] {
-  width: clamp(150px, 18vw, 210px) !important;
+  width: clamp(220px, 26vw, 320px) !important;
   height: auto !important;
-  max-height: 96px !important;
+  max-height: 140px !important;
   object-fit: contain;
   display: block;
   margin: -2px auto 0;
