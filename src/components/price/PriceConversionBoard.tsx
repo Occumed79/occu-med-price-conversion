@@ -332,7 +332,7 @@ export const PriceConversionBoard = () => {
               )}
 
               <div className="text-sm text-white/50">
-                Rates auto-refresh every hour. Sheets are stored in Supabase and shared across users.
+                Rates auto-refresh every hour. Sheets are stored in Neon and shared across users.
               </div>
             </div>
           </div>
