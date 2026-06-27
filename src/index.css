@@ -256,6 +256,150 @@ All colors MUST be HSL.
   .glass-card input::placeholder {
     color: rgba(255, 255, 255, 0.35);
   }
+
+  .report-sheet {
+    max-width: 800px;
+    background: white;
+    color: #111827;
+    border-radius: 16px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+    padding: 48px 56px;
+  }
+
+  .report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid #0A1F5E;
+  }
+
+  .report-logo {
+    height: 48px;
+    width: auto;
+  }
+
+  .report-meta {
+    text-align: right;
+  }
+
+  .report-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0A1F5E;
+    line-height: 1.2;
+  }
+
+  .report-subtitle {
+    font-size: 14px;
+    color: #4b5563;
+    margin-top: 4px;
+  }
+
+  .report-date {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 6px;
+  }
+
+  .report-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+  }
+
+  .report-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    padding: 4px 0;
+  }
+
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+
+  .report-table th {
+    text-align: left;
+    padding: 12px 8px;
+    border-bottom: 2px solid #0A1F5E;
+    color: #0A1F5E;
+    font-weight: 600;
+  }
+
+  .report-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #374151;
+  }
+
+  .report-table th.text-right,
+  .report-table td.text-right {
+    text-align: right;
+  }
+
+  .report-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 28px;
+  }
+
+  .report-summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    padding: 6px 0;
+    color: #374151;
+  }
+
+  .report-summary-row.total {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0A1F5E;
+    border-top: 2px solid #0A1F5E;
+    margin-top: 10px;
+    padding-top: 12px;
+  }
+
+  .report-footer {
+    text-align: center;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 32px;
+  }
+
+  @media print {
+    body {
+      background: white !important;
+    }
+    .liquid-bg {
+      background: white !important;
+    }
+    .report-overlay {
+      position: static !important;
+      padding: 0 !important;
+      background: white !important;
+      overflow: visible !important;
+    }
+    .report-sheet {
+      box-shadow: none;
+      border-radius: 0;
+      max-width: none;
+      padding: 24px 32px;
+    }
+    .report-logo {
+      height: 40px;
+    }
+  }
 }
 
 @layer components {

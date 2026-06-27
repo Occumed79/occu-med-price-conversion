@@ -33,6 +33,13 @@ A price conversion tool for Occu-Med exam components, built with React + Vite.
 2. Copy the connection string (e.g., `postgresql://user:pass@host.neon.tech/dbname?sslmode=require`).
 3. Set it as `DATABASE_URL` on your Render backend service.
 
+**Important:** the connection string must be the standard Neon hostname (e.g., `...pooler.us-east-1.aws.neon.tech`). If you see `Save failed` with `getaddrinfo ENOTFOUND`, the hostname contains an invalid segment (such as `.c-9`). Remove it and remove `channel_binding=require`.
+
+Example:
+```
+postgresql://neondb_owner:PASSWORD@ep-icy-salad-atepu99t-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
+```
+
 The backend will create the `sheets` table automatically:
 
 ```sql

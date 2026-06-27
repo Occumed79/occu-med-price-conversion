@@ -174,9 +174,11 @@ export const PriceConversionBoard = () => {
   const totalSource = useMemo(() => rows.reduce((sum, r) => sum + (r.priceSource || 0), 0), [rows]);
   const subtotalUsd = totalSource * usdPerSource;
 
-  const adjustmentLines = useMemo(() => {
+  const adjustmentLines = useMemo<{ id: string; name: string; percent: number; amountUsd: number }[]>(() => {
     return adjustments.map((a) => ({
-      ...a,
+      id: a.id,
+      name: a.name,
+      percent: a.percent,
       amountUsd: subtotalUsd * (a.percent / 100),
     }));
   }, [adjustments, subtotalUsd]);
@@ -362,7 +364,7 @@ export const PriceConversionBoard = () => {
                     <div className="text-sm text-white/50">No adjustments. Add tax, fees, or markups.</div>
                   ) : (
                     <div className="space-y-2">
-                      {adjustments.map((a) => (
+                      {adjustmentLines.map((a) => (
                         <div key={a.id} className="flex items-center gap-2">
                           <input
                             type="text"
@@ -484,8 +486,8 @@ export const PriceConversionBoard = () => {
       </div>
 
       {showReport && (
-        <div className="fixed inset-0 z-50 bg-black/80 p-6 overflow-y-auto print:bg-white print:p-0">
-          <div className="max-w-3xl mx-auto glass-card p-8 print:shadow-none print:bg-white print:text-black">
+        <div className="report-overlay fixed inset-0 z-50 bg-black/80 p-4 overflow-y-auto">
+          <div className="report-sheet mx-auto">
             <div className="flex items-center justify-between mb-6 print:hidden">
               <div className="text-white font-semibold">Report Preview</div>
               <div className="flex items-center gap-2">
@@ -493,34 +495,65 @@ export const PriceConversionBoard = () => {
                 <button onClick={() => setShowReport(false)} className="btn-glass-danger">Close</button>
               </div>
             </div>
-            <div className="text-center mb-8">
-              <div className="text-2xl font-bold text-white print:text-black">{sheetName || "Pricing Report"}</div>
-              <div className="text-sm text-white/70 print:text-gray-600">{lastUpdated}</div>
+
+            <div className="report-header">
+              <img src="/logo.svg" alt="Occu-Med" className="report-logo" />
+              <div className="report-meta">
+                <div className="report-title">{sheetName || "Pricing Report"}</div>
+                <div className="report-subtitle">Currency Conversion Sheet</div>
+                <div className="report-date">Prepared: {lastUpdated}</div>
+              </div>
             </div>
-            <table className="w-full text-sm mb-6">
+
+            <div className="report-box">
+              <div className="report-row">
+                <span>Source currency</span>
+                <span className="font-semibold">{sourceCurrency} — {source?.name}</span>
+              </div>
+              <div className="report-row">
+                <span>Exchange rate</span>
+                <span className="font-semibold">1 {sourceCurrency} = {formatRate(usdPerSource)} USD</span>
+              </div>
+            </div>
+
+            <table className="report-table">
               <thead>
-                <tr className="border-b border-white/20 print:border-gray-300">
-                  <th className="text-left py-2 text-white print:text-black">Component</th>
-                  <th className="text-right py-2 text-white print:text-black">Price ({sourceCurrency})</th>
-                  <th className="text-right py-2 text-white print:text-black">USD</th>
+                <tr>
+                  <th>Component</th>
+                  <th className="text-right">Price ({sourceCurrency})</th>
+                  <th className="text-right">Converted (USD)</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-white/10 print:border-gray-200">
-                    <td className="py-2 text-white/90 print:text-black">{r.component.name}</td>
-                    <td className="py-2 text-right text-white/90 print:text-black">{formatCurrency(r.priceSource, source?.symbol || sourceCurrency)}</td>
-                    <td className="py-2 text-right text-cyan-300 print:text-black">{formatCurrency(convertToUsd(r.priceSource), "$")}</td>
+                  <tr key={r.id}>
+                    <td>{r.component.name}</td>
+                    <td className="text-right">{formatCurrency(r.priceSource, source?.symbol || sourceCurrency)}</td>
+                    <td className="text-right font-semibold">{formatCurrency(convertToUsd(r.priceSource), "$")}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div className="space-y-1 border-t border-white/20 pt-4 print:border-gray-300">
-              <div className="flex justify-between text-white print:text-black"><span>Subtotal</span><span>{formatCurrency(subtotalUsd, "$")}</span></div>
+
+            <div className="report-summary">
+              <div className="report-summary-row">
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotalUsd, "$")}</span>
+              </div>
               {adjustmentLines.map((a) => (
-                <div key={a.id} className="flex justify-between text-white/80 print:text-black"><span>{a.name} ({a.percent}%)</span><span>{formatCurrency(a.amountUsd, "$")}</span></div>
+                <div key={a.id} className="report-summary-row">
+                  <span>{a.name} ({a.percent}%)</span>
+                  <span>{formatCurrency(a.amountUsd, "$")}</span>
+                </div>
               ))}
-              <div className="flex justify-between text-xl font-bold text-cyan-300 pt-2 border-t border-white/20 print:border-gray-300 print:text-black"><span>Total</span><span>{formatCurrency(finalUsd, "$")}</span></div>
+              <div className="report-summary-row total">
+                <span>Total</span>
+                <span>{formatCurrency(finalUsd, "$")}</span>
+              </div>
+            </div>
+
+            <div className="report-footer">
+              Rates are live and auto-refresh every hour. Report generated by Occu-Med Price Conversion Board.
             </div>
           </div>
         </div>
