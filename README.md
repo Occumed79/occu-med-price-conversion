@@ -3,9 +3,9 @@
 A price conversion tool for Occu-Med exam components, built with React + Vite.
 
 - **Frontend**: React + Vite (Render Static Web Service)
-- **Backend**: Render Node API service (`backend/server.mjs`) with Supabase persistence
+- **Backend**: Render Node API service (`backend/server.mjs`) with Neon PostgreSQL persistence
 - **Rates**: Fetched automatically from `https://api.exchangerate-api.com/v4/latest/USD`
-- **Persistence**: Conversion sheets are stored in Supabase and shared across users
+- **Persistence**: Conversion sheets are stored in Neon and shared across users
 
 ## Features
 
@@ -24,26 +24,27 @@ A price conversion tool for Occu-Med exam components, built with React + Vite.
 
 ### Backend
 - Provides CRUD API endpoints for conversion sheets
-- Stores sheets in Supabase (`sheets` table)
+- Stores sheets in a Neon PostgreSQL `sheets` table
+- Auto-creates the table on first request
 
-## Supabase setup
+## Neon setup
 
-Create the `sheets` table:
+1. Create a new project in Neon.
+2. Copy the connection string (e.g., `postgresql://user:pass@host.neon.tech/dbname?sslmode=require`).
+3. Set it as `DATABASE_URL` on your Render backend service.
+
+The backend will create the `sheets` table automatically:
 
 ```sql
-create table if not exists public.sheets (
-  id uuid default gen_random_uuid() primary key,
+create table if not exists sheets (
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   target_currency text not null default 'EUR',
-  rows jsonb not null default '[]',
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  rows jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 ```
-
-RLS guidance:
-- Keep RLS enabled on `sheets`
-- For an internal/shared tool, add a policy allowing all operations for authenticated users, or enable anon access if the app is public
 
 ## Render deployment
 
@@ -56,9 +57,9 @@ This repo includes `render.yaml` with **two services**.
 - Health check path: `/health`
 
 Required backend env vars:
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL` (Neon connection string)
 - `FRONTEND_ORIGIN` (optional; default `*`)
+- `NODE_ENV` (set to `production` on Render)
 
 ### 2) Frontend service (`occu-med-frontend`)
 - Runtime: Static Site
@@ -67,8 +68,6 @@ Required backend env vars:
 - Rewrite rule: `/* -> /index.html`
 
 Required frontend env vars:
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
 - `VITE_API_BASE_URL` (public URL of backend service)
 
 ## Local development
@@ -76,6 +75,7 @@ Required frontend env vars:
 Terminal 1 (backend):
 ```bash
 npm install
+# Set DATABASE_URL to a local Postgres or Neon database
 npm run dev:backend
 ```
 
@@ -87,4 +87,4 @@ npm run dev
 ## Notes
 
 - Rates are provided by a free public API and may have usage limits.
-- The backend needs Supabase credentials to save and load shared sheets.
+- The backend needs a `DATABASE_URL` pointing to a PostgreSQL database (Neon or local Postgres).

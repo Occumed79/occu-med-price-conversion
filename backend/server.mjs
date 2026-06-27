@@ -1,9 +1,12 @@
 import http from "node:http";
 import { URL } from "node:url";
-import { createClient } from "@supabase/supabase-js";
+import pg from "pg";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
+const { Pool } = pg;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*";
@@ -39,6 +42,19 @@ function readJson(req) {
   });
 }
 
+async function initDb() {
+  await pool.query(`
+    create table if not exists sheets (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      target_currency text not null default 'EUR',
+      rows jsonb not null default '[]'::jsonb,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+  `);
+}
+
 const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
@@ -52,21 +68,28 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
   try {
+    await initDb();
+
     if (req.method === "GET" && url.pathname === "/health") {
       return sendJson(res, 200, { ok: true, service: "occu-med-price-conversion", timestamp: new Date().toISOString() });
     }
 
     if (req.method === "GET" && url.pathname === "/api/sheets") {
-      const { data, error } = await supabase.from("sheets").select("*").order("updated_at", { ascending: false });
-      if (error) throw error;
-      return sendJson(res, 200, { sheets: data || [] });
+      const { rows } = await pool.query(
+        "select id, name, target_currency, rows, created_at, updated_at from sheets order by updated_at desc"
+      );
+      return sendJson(res, 200, { sheets: rows });
     }
 
-    if (req.method === "GET" && url.pathname.match(/^\/api\/sheets\/([^/]+)$/)) {
-      const id = decodeURIComponent(url.pathname.match(/^\/api\/sheets\/([^/]+)$/)[1]);
-      const { data, error } = await supabase.from("sheets").select("*").eq("id", id).single();
-      if (error) throw error;
-      return sendJson(res, 200, { sheet: data });
+    const sheetMatch = url.pathname.match(/^\/api\/sheets\/([^/]+)$/);
+    if (req.method === "GET" && sheetMatch) {
+      const id = decodeURIComponent(sheetMatch[1]);
+      const { rows } = await pool.query(
+        "select id, name, target_currency, rows, created_at, updated_at from sheets where id = $1",
+        [id]
+      );
+      if (rows.length === 0) return sendJson(res, 404, { error: "Sheet not found" });
+      return sendJson(res, 200, { sheet: rows[0] });
     }
 
     if (req.method === "POST" && url.pathname === "/api/sheets") {
@@ -75,33 +98,28 @@ const server = http.createServer(async (req, res) => {
       if (!name || !Array.isArray(rows)) {
         return sendJson(res, 400, { error: "name and rows are required" });
       }
-      const { data, error } = await supabase
-        .from("sheets")
-        .insert({ name, target_currency: target_currency || "EUR", rows })
-        .select()
-        .single();
-      if (error) throw error;
-      return sendJson(res, 200, { sheet: data });
+      const { rows: result } = await pool.query(
+        "insert into sheets (name, target_currency, rows) values ($1, $2, $3) returning *",
+        [name, target_currency || "EUR", JSON.stringify(rows)]
+      );
+      return sendJson(res, 200, { sheet: result[0] });
     }
 
-    if (req.method === "PUT" && url.pathname.match(/^\/api\/sheets\/([^/]+)$/)) {
-      const id = decodeURIComponent(url.pathname.match(/^\/api\/sheets\/([^/]+)$/)[1]);
+    if (req.method === "PUT" && sheetMatch) {
+      const id = decodeURIComponent(sheetMatch[1]);
       const body = await readJson(req);
       const { name, target_currency, rows } = body || {};
-      const { data, error } = await supabase
-        .from("sheets")
-        .update({ name, target_currency, rows, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return sendJson(res, 200, { sheet: data });
+      const { rows: result } = await pool.query(
+        "update sheets set name = $1, target_currency = $2, rows = $3, updated_at = now() where id = $4 returning *",
+        [name, target_currency, JSON.stringify(rows), id]
+      );
+      if (result.length === 0) return sendJson(res, 404, { error: "Sheet not found" });
+      return sendJson(res, 200, { sheet: result[0] });
     }
 
-    if (req.method === "DELETE" && url.pathname.match(/^\/api\/sheets\/([^/]+)$/)) {
-      const id = decodeURIComponent(url.pathname.match(/^\/api\/sheets\/([^/]+)$/)[1]);
-      const { error } = await supabase.from("sheets").delete().eq("id", id);
-      if (error) throw error;
+    if (req.method === "DELETE" && sheetMatch) {
+      const id = decodeURIComponent(sheetMatch[1]);
+      await pool.query("delete from sheets where id = $1", [id]);
       return sendJson(res, 200, { ok: true });
     }
 
