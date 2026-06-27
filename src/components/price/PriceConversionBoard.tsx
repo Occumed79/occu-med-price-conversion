@@ -10,7 +10,7 @@ import { RefreshCw, Trash2, Calculator, Save, FolderOpen, X } from "lucide-react
 interface PriceRow {
   id: string;
   component: ExamComponent;
-  priceUsd: number;
+  priceSource: number;
 }
 
 const componentById = (id: string): ExamComponent | undefined => {
@@ -26,7 +26,7 @@ export const PriceConversionBoard = () => {
   const [rates, setRates] = useState<Record<string, number>>({});
   const [ratesLoading, setRatesLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
-  const [targetCurrency, setTargetCurrency] = useState<string>("EUR");
+  const [sourceCurrency, setSourceCurrency] = useState<string>("EUR");
   const [sheetName, setSheetName] = useState<string>("");
   const [savedSheets, setSavedSheets] = useState<SavedSheet[]>([]);
   const [showSaved, setShowSaved] = useState(false);
@@ -68,15 +68,15 @@ export const PriceConversionBoard = () => {
 
   const addComponent = (component: ExamComponent) => {
     if (rows.some((r) => r.component.id === component.id)) return;
-    setRows((prev) => [...prev, { id: `row-${Date.now()}-${Math.random()}`, component, priceUsd: 0 }]);
+    setRows((prev) => [...prev, { id: `row-${Date.now()}-${Math.random()}`, component, priceSource: 0 }]);
   };
 
   const removeRow = (id: string) => {
     setRows((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const updatePrice = (id: string, priceUsd: number) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, priceUsd } : r)));
+  const updatePrice = (id: string, priceSource: number) => {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, priceSource } : r)));
   };
 
   const clearRows = () => {
@@ -86,12 +86,12 @@ export const PriceConversionBoard = () => {
   };
 
   const toSheetRows = (): SheetRow[] =>
-    rows.map((r) => ({ id: r.id, componentId: r.component.id, componentName: r.component.name, priceUsd: r.priceUsd }));
+    rows.map((r) => ({ id: r.id, componentId: r.component.id, componentName: r.component.name, priceSource: r.priceSource }));
 
   const fromSheetRows = (sheetRows: SheetRow[]): PriceRow[] =>
     sheetRows.map((sr) => {
       const component = componentById(sr.componentId) || { id: sr.componentId, name: sr.componentName };
-      return { id: sr.id || `row-${Date.now()}-${Math.random()}`, component, priceUsd: sr.priceUsd };
+      return { id: sr.id || `row-${Date.now()}-${Math.random()}`, component, priceSource: sr.priceSource || 0 };
     });
 
   const handleSave = async () => {
@@ -100,7 +100,7 @@ export const PriceConversionBoard = () => {
       return;
     }
     const name = sheetName.trim() || `Sheet ${new Date().toLocaleString()}`;
-    const payload = { name, target_currency: targetCurrency, rows: toSheetRows() };
+    const payload = { name, source_currency: sourceCurrency, rows: toSheetRows() };
     try {
       if (currentSheetId) {
         const updated = await updateSheet(currentSheetId, payload);
@@ -120,7 +120,7 @@ export const PriceConversionBoard = () => {
 
   const handleLoad = async (sheet: SavedSheet) => {
     setRows(fromSheetRows(sheet.rows));
-    setTargetCurrency(sheet.target_currency);
+    setSourceCurrency(sheet.source_currency);
     setSheetName(sheet.name);
     setCurrentSheetId(sheet.id);
     setShowSaved(false);
@@ -141,11 +141,14 @@ export const PriceConversionBoard = () => {
     }
   };
 
-  const target = CURRENCIES.find((c) => c.code === targetCurrency);
-  const targetRate = rates[targetCurrency] || 0;
+  const source = CURRENCIES.find((c) => c.code === sourceCurrency);
+  const sourceRate = rates[sourceCurrency] || 0;
+  const usdPerSource = sourceRate > 0 ? 1 / sourceRate : 0;
 
-  const totalUsd = useMemo(() => rows.reduce((sum, r) => sum + (r.priceUsd || 0), 0), [rows]);
-  const totalConverted = totalUsd * targetRate;
+  const convertToUsd = (amountSource: number) => amountSource * usdPerSource;
+
+  const totalSource = useMemo(() => rows.reduce((sum, r) => sum + (r.priceSource || 0), 0), [rows]);
+  const totalUsd = totalSource * usdPerSource;
 
   const activeIds = useMemo(() => rows.map((r) => r.component.id), [rows]);
 
@@ -161,17 +164,17 @@ export const PriceConversionBoard = () => {
                 <Calculator className="h-7 w-7 text-white" />
                 <div className="header-title" style={{ fontSize: 24 }}>Price Conversion Board</div>
               </div>
-              <div className="text-sm text-white/70 z-10 mt-1">Live currency rates · USD base · Shared sheets</div>
+              <div className="text-sm text-white/70 z-10 mt-1">Convert any currency to USD · Shared sheets</div>
             </div>
 
             <div className="p-6 space-y-6">
               <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div>
-                    <div className="text-sm text-white/60">Target Currency</div>
+                    <div className="text-sm text-white/60">Source Currency</div>
                     <select
-                      value={targetCurrency}
-                      onChange={(e) => setTargetCurrency(e.target.value)}
+                      value={sourceCurrency}
+                      onChange={(e) => setSourceCurrency(e.target.value)}
                       className="mt-1 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-white focus:outline-none focus:border-white/30"
                     >
                       {CURRENCIES.map((c) => (
@@ -181,10 +184,10 @@ export const PriceConversionBoard = () => {
                       ))}
                     </select>
                   </div>
-                  {target && (
+                  {source && (
                     <div className="text-sm text-white/60">
-                      <div>1 USD = {formatRate(targetRate)} {target.code}</div>
-                      <div>1 {target.code} = {formatRate(targetRate > 0 ? 1 / targetRate : 0)} USD</div>
+                      <div>1 {source.code} = {formatRate(usdPerSource)} USD</div>
+                      <div>1 USD = {formatRate(sourceRate)} {source.code}</div>
                     </div>
                   )}
                 </div>
@@ -251,7 +254,7 @@ export const PriceConversionBoard = () => {
                             className="text-left text-sm text-white/90 flex-1"
                           >
                             <div className="font-medium">{sheet.name}</div>
-                            <div className="text-xs text-white/50">{sheet.rows.length} items · {sheet.target_currency} · {new Date(sheet.updated_at).toLocaleString()}</div>
+                            <div className="text-xs text-white/50">{sheet.rows.length} items · {sheet.source_currency} → USD · {new Date(sheet.updated_at).toLocaleString()}</div>
                           </button>
                           <button
                             type="button"
@@ -270,7 +273,7 @@ export const PriceConversionBoard = () => {
               {rows.length === 0 ? (
                 <div className="text-center py-16 border border-dashed border-white/20 rounded-2xl">
                   <div className="text-white/70 text-lg mb-2">No components added</div>
-                  <div className="text-sm text-white/50">Use the sidebar to add exam components and their USD prices.</div>
+                  <div className="text-sm text-white/50">Use the sidebar to add exam components and their source-currency prices.</div>
                 </div>
               ) : (
                 <div className="glass-panel rounded-2xl overflow-hidden">
@@ -278,32 +281,32 @@ export const PriceConversionBoard = () => {
                     <thead className="bg-white/5">
                       <tr>
                         <th className="text-left px-4 py-3 font-semibold text-white">Component</th>
-                        <th className="text-right px-4 py-3 font-semibold text-white w-40">Price (USD)</th>
-                        <th className="text-right px-4 py-3 font-semibold text-white w-40">Converted ({targetCurrency})</th>
+                        <th className="text-right px-4 py-3 font-semibold text-white w-40">Price ({sourceCurrency})</th>
+                        <th className="text-right px-4 py-3 font-semibold text-white w-40">Converted (USD)</th>
                         <th className="px-4 py-3 w-12"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/10">
                       {rows.map((row) => {
-                        const converted = (row.priceUsd || 0) * targetRate;
+                        const converted = convertToUsd(row.priceSource || 0);
                         return (
                           <tr key={row.id}>
                             <td className="px-4 py-3 text-white/90">{row.component.name}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-2">
-                                <span className="text-white/50">$</span>
+                                <span className="text-white/50">{source?.symbol || sourceCurrency}</span>
                                 <input
                                   type="number"
                                   min={0}
                                   step={0.01}
-                                  value={row.priceUsd || ""}
+                                  value={row.priceSource || ""}
                                   onChange={(e) => updatePrice(row.id, parseFloat(e.target.value) || 0)}
                                   className="w-28 px-2 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white focus:outline-none focus:border-white/30 text-right"
                                 />
                               </div>
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-cyan-300">
-                              {formatCurrency(converted, target?.symbol || "")}
+                              {formatCurrency(converted, "$")}
                             </td>
                             <td className="px-4 py-3">
                               <button
@@ -322,8 +325,8 @@ export const PriceConversionBoard = () => {
                     <tfoot className="bg-white/10 border-t border-white/10">
                       <tr>
                         <td className="px-4 py-3 font-semibold text-white">Total</td>
-                        <td className="px-4 py-3 text-right font-bold text-white">{formatCurrency(totalUsd, "$")}</td>
-                        <td className="px-4 py-3 text-right font-bold text-cyan-300">{formatCurrency(totalConverted, target?.symbol || "")}</td>
+                        <td className="px-4 py-3 text-right font-bold text-white">{formatCurrency(totalSource, source?.symbol || sourceCurrency)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-cyan-300">{formatCurrency(totalUsd, "$")}</td>
                         <td></td>
                       </tr>
                     </tfoot>

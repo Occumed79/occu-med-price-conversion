@@ -2,13 +2,13 @@ export interface SheetRow {
   id: string;
   componentId: string;
   componentName: string;
-  priceUsd: number;
+  priceSource: number;
 }
 
 export interface SavedSheet {
   id: string;
   name: string;
-  target_currency: string;
+  source_currency: string;
   rows: SheetRow[];
   created_at: string;
   updated_at: string;
@@ -37,7 +37,7 @@ export async function listSheets(): Promise<SavedSheet[]> {
   return data.sheets;
 }
 
-export async function createSheet(sheet: { name: string; target_currency: string; rows: SheetRow[] }): Promise<SavedSheet> {
+export async function createSheet(sheet: { name: string; source_currency: string; rows: SheetRow[] }): Promise<SavedSheet> {
   const data = await fetchJson<{ sheet: SavedSheet }>("/api/sheets", {
     method: "POST",
     body: JSON.stringify(sheet),
@@ -45,7 +45,7 @@ export async function createSheet(sheet: { name: string; target_currency: string
   return data.sheet;
 }
 
-export async function updateSheet(id: string, sheet: { name: string; target_currency: string; rows: SheetRow[] }): Promise<SavedSheet> {
+export async function updateSheet(id: string, sheet: { name: string; source_currency: string; rows: SheetRow[] }): Promise<SavedSheet> {
   const data = await fetchJson<{ sheet: SavedSheet }>(`/api/sheets/${id}`, {
     method: "PUT",
     body: JSON.stringify(sheet),

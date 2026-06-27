@@ -47,11 +47,23 @@ async function initDb() {
     create table if not exists sheets (
       id uuid primary key default gen_random_uuid(),
       name text not null,
-      target_currency text not null default 'EUR',
+      source_currency text not null default 'EUR',
       rows jsonb not null default '[]'::jsonb,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+  `);
+
+  await pool.query(`
+    do $$
+    begin
+      if exists (
+        select 1 from information_schema.columns
+        where table_name = 'sheets' and column_name = 'target_currency'
+      ) then
+        alter table sheets rename column target_currency to source_currency;
+      end if;
+    end $$;
   `);
 }
 
@@ -74,7 +86,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "GET" && url.pathname === "/api/sheets") {
       const { rows } = await pool.query(
-        "select id, name, target_currency, rows, created_at, updated_at from sheets order by updated_at desc"
+        "select id, name, source_currency, rows, created_at, updated_at from sheets order by updated_at desc"
       );
       return sendJson(res, 200, { sheets: rows });
     }
@@ -83,7 +95,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && sheetMatch) {
       const id = decodeURIComponent(sheetMatch[1]);
       const { rows } = await pool.query(
-        "select id, name, target_currency, rows, created_at, updated_at from sheets where id = $1",
+        "select id, name, source_currency, rows, created_at, updated_at from sheets where id = $1",
         [id]
       );
       if (rows.length === 0) return sendJson(res, 404, { error: "Sheet not found" });
@@ -92,13 +104,13 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/api/sheets") {
       const body = await readJson(req);
-      const { name, target_currency, rows } = body || {};
+      const { name, source_currency, rows } = body || {};
       if (!name || !Array.isArray(rows)) {
         return sendJson(res, 400, { error: "name and rows are required" });
       }
       const { rows: result } = await pool.query(
-        "insert into sheets (name, target_currency, rows) values ($1, $2, $3) returning *",
-        [name, target_currency || "EUR", JSON.stringify(rows)]
+        "insert into sheets (name, source_currency, rows) values ($1, $2, $3) returning *",
+        [name, source_currency || "EUR", JSON.stringify(rows)]
       );
       return sendJson(res, 200, { sheet: result[0] });
     }
@@ -106,10 +118,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "PUT" && sheetMatch) {
       const id = decodeURIComponent(sheetMatch[1]);
       const body = await readJson(req);
-      const { name, target_currency, rows } = body || {};
+      const { name, source_currency, rows } = body || {};
       const { rows: result } = await pool.query(
-        "update sheets set name = $1, target_currency = $2, rows = $3, updated_at = now() where id = $4 returning *",
-        [name, target_currency, JSON.stringify(rows), id]
+        "update sheets set name = $1, source_currency = $2, rows = $3, updated_at = now() where id = $4 returning *",
+        [name, source_currency, JSON.stringify(rows), id]
       );
       if (result.length === 0) return sendJson(res, 404, { error: "Sheet not found" });
       return sendJson(res, 200, { sheet: result[0] });

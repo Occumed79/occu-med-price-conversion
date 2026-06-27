@@ -39,7 +39,7 @@ The backend will create the `sheets` table automatically:
 create table if not exists sheets (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  target_currency text not null default 'EUR',
+  source_currency text not null default 'EUR',
   rows jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
