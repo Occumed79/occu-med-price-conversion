@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CURRENCIES } from "@/data/currencies";
 import { EXAM_CATEGORIES, type ExamComponent } from "@/data/examComponents";
 import { listSheets, createSheet, updateSheet, deleteSheet, type SavedSheet, type SheetRow, type Adjustment } from "@/lib/sheetsApi";
-import { RefreshCw, Trash2, Calculator, Save, FolderOpen, X, Plus, FileSpreadsheet, FileText, Percent } from "lucide-react";
+import { RefreshCw, Trash2, Save, FolderOpen, X, Plus, FileSpreadsheet, FileText, Percent } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface PriceRow {
@@ -227,8 +227,8 @@ export const PriceConversionBoard = () => {
           <div className="flex-1 w-full" style={{ maxWidth: "none" }}>
             <div className="glass-card overflow-hidden">
               <div className="glass-header flex-col items-center text-center py-6">
-                <div className="flex items-center gap-3 z-10">
-                  <Calculator className="h-7 w-7 text-white" />
+                <div className="flex flex-col items-center gap-3 z-10">
+                  <img src="/logo.svg" alt="Occu-Med" className="h-14 w-auto" />
                   <div className="header-title" style={{ fontSize: 24 }}>Price Conversion Board</div>
                 </div>
                 <div className="text-sm text-white/70 z-10 mt-1">Convert any currency to USD · Shared sheets</div>
